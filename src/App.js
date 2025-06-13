@@ -329,53 +329,66 @@ const uploadAndAnalyzeBatch = async () => {
             {/* Summary */}
             <div className="summary">
               <h3>Summary Statistics</h3>
-              <div className="stats-grid">
-                <div className="stat">
-                  <span className="label">Files Processed:</span>
-                  <span className="value">{results.summary.successfulFiles}/{results.summary.totalFiles}</span>
-                </div>
-                <div className="stat">
-                  <span className="label">Bin Length:</span>
-                  <span className="value">{results.summary.binLength}m</span>
-                </div>
-                <div className="stat">
-                  <span className="label">Total Bins:</span>
-                  <span className="value">{results.summary.totalBins}</span>
-                </div>
-                <div className="stat">
-                  <span className="label">Avg Bins/File:</span>
-                  <span className="value">{results.summary.avgBinsPerFile}</span>
-                </div>
-                <div className="stat">
-                  <span className="label">Files with HR:</span>
-                  <span className="value">
-                    {results.results.filter(r => r.avgHeartRate).length}/{results.summary.successfulFiles}
-                    {results.results.filter(r => r.avgHeartRate).length > 0 && (
-                      <span style={{fontSize: '12px', display: 'block', color: '#666'}}>
-                        ({Math.round((results.results.filter(r => r.avgHeartRate).length / results.summary.successfulFiles) * 100)}%)
+              {/* --- Calculate summary metrics from the table data --- */}
+              {(() => {
+                const successfulFiles = results.results.length;
+                const totalBins = results.results.reduce((sum, r) => sum + (r.bins?.length || 0), 0);
+                const avgBinsPerFile = successfulFiles > 0 ? Math.round(totalBins / successfulFiles) : 0;
+                const filesWithHR = results.results.filter(r => r.avgHeartRate).length;
+                const totalDistance = results.results.reduce((sum, r) => sum + r.distance, 0);
+                const totalTime = results.results.reduce((sum, r) => sum + r.totalTime, 0);
+                const totalElevation = results.results.reduce((sum, r) => sum + r.elevationGain, 0);
+
+                return (
+                  <div className="stats-grid">
+                    <div className="stat">
+                      <span className="label">Files Processed:</span>
+                      <span className="value">{successfulFiles}/{results.summary?.totalFiles || successfulFiles}</span>
+                    </div>
+                    <div className="stat">
+                      <span className="label">Bin Length:</span>
+                      <span className="value">{results.summary?.binLength || binLength}m</span>
+                    </div>
+                    <div className="stat">
+                      <span className="label">Total Bins:</span>
+                      <span className="value">{totalBins}</span>
+                    </div>
+                    <div className="stat">
+                      <span className="label">Avg Bins/File:</span>
+                      <span className="value">{avgBinsPerFile}</span>
+                    </div>
+                    <div className="stat">
+                      <span className="label">Files with HR:</span>
+                      <span className="value">
+                        {filesWithHR}/{successfulFiles}
+                        {filesWithHR > 0 && (
+                          <span style={{fontSize: '12px', display: 'block', color: '#666'}}>
+                            ({Math.round((filesWithHR / successfulFiles) * 100)}%)
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </div>
-                <div className="stat">
-                  <span className="label">Total Distance:</span>
-                  <span className="value">
-                    {results.results.reduce((sum, r) => sum + r.distance, 0).toFixed(1)} km
-                  </span>
-                </div>
-                <div className="stat">
-                  <span className="label">Total Time:</span>
-                  <span className="value">
-                    {formatTime(results.results.reduce((sum, r) => sum + r.totalTime, 0))}
-                  </span>
-                </div>
-                <div className="stat">
-                  <span className="label">Total Elevation:</span>
-                  <span className="value">
-                    {results.results.reduce((sum, r) => sum + r.elevationGain, 0)} m
-                  </span>
-                </div>
-              </div>
+                    </div>
+                    <div className="stat">
+                      <span className="label">Total Distance:</span>
+                      <span className="value">
+                        {totalDistance.toFixed(1)} km
+                      </span>
+                    </div>
+                    <div className="stat">
+                      <span className="label">Total Time:</span>
+                      <span className="value">
+                        {formatTime(totalTime)}
+                      </span>
+                    </div>
+                    <div className="stat">
+                      <span className="label">Total Elevation:</span>
+                      <span className="value">
+                        {totalElevation} m
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Advanced Analysis Button */}
@@ -474,8 +487,3 @@ const uploadAndAnalyzeBatch = async () => {
 }
 
 export default App;
-
-// Calculate summary metrics from the results array
-const successfulFiles = results.results.length;
-const totalBins = results.results.reduce((sum, r) => sum + (r.bins?.length || 0), 0);
-const avgBinsPerFile = successfulFiles > 0 ? Math.round(totalBins / successfulFiles) : 0;

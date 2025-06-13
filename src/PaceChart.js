@@ -47,12 +47,14 @@ const GradientPaceChart = ({ gradientData, statType = 'mean' }) => {
   const minPace = Math.min(...paceValues);
   const paceRange = maxPace - minPace;
 
-  const getBarColor = (bucket) => {
-    const gradient = parseFloat(bucket.label.split(' ')[0]);
-    if (gradient < 0) return '#10b981'; // Green for downhill
-    if (gradient <= 5) return '#3b82f6'; // Blue for flat to moderate
-    return '#ef4444'; // Red for steep uphill
-  };
+const getBarColor = (bucket) => {
+  // Special case for <=-25% label
+  if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) return '#10b981'; // Green
+  const gradient = parseFloat(bucket.label.split(' ')[0]);
+  if (gradient < 0) return '#10b981'; // Green for downhill
+  if (gradient <= 5) return '#3b82f6'; // Blue for flat to moderate
+  return '#ef4444'; // Red for steep uphill
+};
 
   return (
     <div ref={chartRef} style={{ 
@@ -233,6 +235,7 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
   // Tooltip state
   const [tooltipData, setTooltipData] = React.useState(null);
 
+
   console.log("GradeAdjustmentChart data check:");
   console.log("- adjustmentData:", adjustmentData);
   console.log("- gradientata:", gradientPaceData);
@@ -271,33 +274,40 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
   };
   const getBasePaceLabel = () => statType === 'median' ? adjustmentData.basePaceMedianLabel : adjustmentData.basePaceLabel;
   
-  // Update bucketed data calculation
-  const bucketedData = [];
-  if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
-    gradientPaceData.buckets.forEach(bucket => {
-      if (bucket.binCount > 0) {
-        const bucketPace = statType === 'median' ? bucket.medianPace : bucket.avgPace;
-        if (bucketPace) {
-          // Fix positioning based on bucket labels
-          let midpoint;
-          
-          if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) {
-            midpoint = -27.5; // Force position for ≤-25% bucket
-          } else if (bucket.label.includes('≥25') || bucket.label.includes('>=25')) {
-            midpoint = 27.5;  // Force position for ≥25% bucket
-          } else {
-            // For regular buckets, use actual midpoint
-            midpoint = (bucket.min + bucket.max) / 2;
-          }
-          
-          console.log(`Bucket "${bucket.label}" positioned at ${midpoint}`);
-                           
-          // Calculate adjustment factor
+const skipLabels = [
+  '≥35', '>=35',
+  '≤-35', '<=-35'
+];
+
+const bucketedData = [];
+if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
+  gradientPaceData.buckets.forEach(bucket => {
+    // Remove spaces AND percent signs for robust matching
+    const cleanLabel = bucket.label.replace(/\s/g, '').replace(/%/g, '');
+    if (skipLabels.some(skip => cleanLabel.startsWith(skip))) {
+      // Debug: log when skipping
+      console.log('Skipping bucket:', bucket.label, 'as cleanLabel:', cleanLabel);
+      return;
+    }
+    if (bucket.binCount > 0) {
+      const bucketPace = statType === 'median' ? bucket.medianPace : bucket.avgPace;
+      if (bucketPace) {
+        let midpoint;
+        if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) {
+          midpoint = -27.5;
+        } else if (bucket.label.includes('≥25') || bucket.label.includes('>=25')) {
+          midpoint = 27.5;
+        } else {
+          midpoint = (bucket.min + bucket.max) / 2;
+        }
+        if (
+          typeof midpoint === 'number' &&
+          !isNaN(midpoint) &&
+          midpoint > -31 &&
+          midpoint < 31
+        ) {
           const adjustmentFactor = bucketPace / getBasePace();
-          
-          // Calculate literature adjustment for comparison
           const literatureAdj = calculateGradeAdjustment(midpoint);
-                           
           bucketedData.push({
             midpoint,
             adjustmentFactor,
@@ -308,8 +318,9 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
           });
         }
       }
-    });
-  }
+    }
+  });
+}
 
   console.log("Debug median data:");
   console.log("- statType:", statType);
@@ -520,69 +531,85 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
           <path d={literatureLinePath} fill="none" stroke="#3b82f6" strokeWidth={2} />
 
           {/* Personal data points */}
-          {data.map((point, idx) => (
-            <circle
-              key={idx}
-              cx={getX(point.gradientValue)}
-              cy={getY(getPersonalAdjustment(point))}
-              r={4}
-              fill="#ef4444"
-              fillOpacity={0.4}
-              stroke="#fff"
-              strokeWidth={1}
-              onMouseEnter={() => {
-                setTooltipData({
-                  x: getX(point.gradientValue),
-                  y: getY(getPersonalAdjustment(point)),
-                  gradient: point.gradient,
-                  personalAdj: getPersonalAdjustment(point) != null ? getPersonalAdjustment(point).toFixed(2) : 'N/A',
-                  literatureAdj: point.literatureAdjustment != null ? point.literatureAdjustment.toFixed(2) : 'N/A',
-                  binCount: point.binCount,
-                  paceLabel: getPaceLabel(point)
-                });
-              }}
-              onMouseLeave={() => setTooltipData(null)}
-              style={{cursor: 'pointer'}}
-            />
-          ))}
-
-          {/* Bucket/category points */}
-          {bucketedData.map((bucket, idx) => (
-            <g key={`bucket-${idx}`}>
-              <rect
-                x={getX(bucket.midpoint) - 4}
-                y={getY(bucket.adjustmentFactor) - 4}
-                width={8}
-                height={8}
-                fill="#3b82f6"
+          {data
+            .filter(point => {
+              // Remove spaces and percent signs for robust matching
+              const cleanLabel = (point.gradient + '').replace(/\s/g, '').replace(/%/g, '');
+              // Exclude points with skip labels
+              if (skipLabels.some(skip => cleanLabel.startsWith(skip))) return false;
+              // Also filter by value
+              return point.gradientValue >= -30 && point.gradientValue <= 30;
+            })
+            .map((point, idx) => (
+              <circle
+                key={idx}
+                cx={getX(point.gradientValue)}
+                cy={getY(getPersonalAdjustment(point))}
+                r={4}
+                fill="#ef4444"
+                fillOpacity={0.4}
                 stroke="#fff"
-                strokeWidth={1.5}
+                strokeWidth={1}
                 onMouseEnter={() => {
                   setTooltipData({
-                    x: getX(bucket.midpoint),
-                    y: getY(bucket.adjustmentFactor),
-                    gradient: bucket.label,
-                    personalAdj: bucket.adjustmentFactor != null ? bucket.adjustmentFactor.toFixed(2) : 'N/A',
-                    literatureAdj: bucket.literatureAdj != null ? bucket.literatureAdj.toFixed(2) : 'N/A',
-                    binCount: bucket.binCount
+                    x: getX(point.gradientValue),
+                    y: getY(getPersonalAdjustment(point)),
+                    gradient: point.gradient,
+                    personalAdj: getPersonalAdjustment(point) != null ? getPersonalAdjustment(point).toFixed(2) : 'N/A',
+                    literatureAdj: calculateGradeAdjustment(point.gradientValue).toFixed(2),
+                    binCount: point.binCount,
+                    paceLabel: getPaceLabel(point)
                   });
                 }}
                 onMouseLeave={() => setTooltipData(null)}
                 style={{cursor: 'pointer'}}
               />
-              {/* Connecting line to literature value */}
-              <line
-                x1={getX(bucket.midpoint)}
-                y1={getY(bucket.adjustmentFactor)}
-                x2={getX(bucket.midpoint)}
-                y2={getY(bucket.literatureAdj)}
-                stroke="#666"
-                strokeWidth={1}
-                strokeDasharray="2 2"
-                opacity={0.6}
-              />
-            </g>
-          ))}
+            ))}
+
+          {/* Bucket/category points */}
+          {bucketedData
+            .filter(bucket =>
+              typeof bucket.midpoint === 'number' &&
+              !isNaN(bucket.midpoint) &&
+              bucket.midpoint > -31 &&
+              bucket.midpoint < 31
+            )
+            .map((bucket, idx) => (
+              <g key={`bucket-${idx}`}>
+                <rect
+                  x={getX(bucket.midpoint) - 4}
+                  y={getY(bucket.adjustmentFactor) - 4}
+                  width={8}
+                  height={8}
+                  fill="#3b82f6"
+                  stroke="#fff"
+                  strokeWidth={1.5}
+                  onMouseEnter={() => {
+                    setTooltipData({
+                      x: getX(bucket.midpoint),
+                      y: getY(bucket.adjustmentFactor),
+                      gradient: bucket.label,
+                      personalAdj: bucket.adjustmentFactor != null ? bucket.adjustmentFactor.toFixed(2) : 'N/A',
+                      literatureAdj: calculateGradeAdjustment(bucket.midpoint).toFixed(2), // FIXED: use polynomial at this x
+                      binCount: bucket.binCount
+                    });
+                  }}
+                  onMouseLeave={() => setTooltipData(null)}
+                  style={{cursor: 'pointer'}}
+                />
+                {/* Connecting line to literature value */}
+                <line
+                  x1={getX(bucket.midpoint)}
+                  y1={getY(bucket.adjustmentFactor)}
+                  x2={getX(bucket.midpoint)}
+                  y2={getY(bucket.literatureAdj)}
+                  stroke="#666"
+                  strokeWidth={1}
+                  strokeDasharray="2 2"
+                  opacity={0.6}
+                />
+              </g>
+            ))}
 
           {/* Tooltip rendering */}
           {tooltipData && (
