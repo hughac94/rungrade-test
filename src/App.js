@@ -266,7 +266,7 @@ function App() {
                 {advancedAnalysis.gradeAdjustment && (
                   <GradeAdjustmentChart 
                     adjustmentData={advancedAnalysis.gradeAdjustment}
-                    gradientPaceData={advancedAnalysis.gradientPace} 
+                    gradientData={advancedAnalysis.gradientPace} 
                   />
                 )}
               </div>

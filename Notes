@@ -1,0 +1,21 @@
+Areas for Improvement
+Memory Management:
+
+🚨 All files in memory: Loading 100 GPX files simultaneously will cause high memory usage
+🔧 Solution: Process in batches of 10-20 files, then aggregate results
+Coefficient Duplication:
+
+🚨 Grade adjustment formula: Same polynomial coefficients duplicated in both frontend and backend
+🔧 Solution: Move to shared constants file or pass from backend to frontend
+Processing Optimization:
+
+🚨 Sequential processing: Files are processed one-by-one
+🔧 Solution: Use worker threads (Node.js) to parallelize file processing
+User Experience:
+
+🚨 No real-time progress: Users must wait for all processing to complete
+🔧 Solution: Stream partial results back to frontend using WebSockets
+Request Timeout Risk:
+
+🚨 Long-running requests: Processing 100 files may exceed default timeout limits
+🔧 Solution: Implement file batching or increase server timeout settings

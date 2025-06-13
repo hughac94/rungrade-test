@@ -131,6 +131,22 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientData }) => {
   // Tooltip state
   const [tooltipData, setTooltipData] = React.useState(null);
 
+console.log("GradeAdjustmentChart data check:");
+console.log("- adjustmentData:", adjustmentData);
+console.log("- gradientata:", gradientData);
+
+
+console.log("Bucket details:");
+gradientData.buckets.forEach((bucket, index) => {
+  console.log(`Bucket ${index}:`, {
+    label: bucket.label,
+    min: bucket.min,
+    max: bucket.max,
+    calculated_midpoint: (bucket.min + bucket.max) / 2
+  });
+});
+
+
   if (
     !adjustmentData ||
     !adjustmentData.adjustmentData ||
@@ -140,28 +156,46 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientData }) => {
   }
 
   const data = adjustmentData.adjustmentData;
-  const basePace = adjustmentData.basePace;
+
 
   // Calculate bucketed adjustment factors
-  const bucketedData = [];
-  if (gradientData && gradientData.buckets) {
-    gradientData.buckets.forEach(bucket => {
-      if (bucket.avgPace && basePace) {
-        const midpoint = (bucket.min === -Infinity) ? -30 :
-                         (bucket.max === Infinity) ? 30 :
-                         (bucket.min + bucket.max) / 2;
-        const adjustmentFactor = bucket.avgPace / basePace;
-        const literatureAdj = calculateGradeAdjustment(midpoint);
-        bucketedData.push({
-          midpoint,
-          adjustmentFactor,
-          literatureAdj,
-          label: bucket.label,
-          binCount: bucket.binCount
-        });
+ const bucketedData = [];
+if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
+  console.log("Processing buckets:", gradientData.buckets);
+  
+  gradientData.buckets.forEach(bucket => {
+    if (bucket.avgPace && bucket.binCount > 0) {
+      // Fix positioning based on bucket labels
+      let midpoint;
+      
+      if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) {
+        midpoint = -27.5; // Force position for ≤-25% bucket
+      } else if (bucket.label.includes('≥25') || bucket.label.includes('>=25')) {
+        midpoint = 27.5;  // Force position for ≥25% bucket
+      } else {
+        // For regular buckets, use actual midpoint
+        midpoint = (bucket.min + bucket.max) / 2;
       }
-    });
-  }
+      
+      console.log(`Bucket "${bucket.label}" positioned at ${midpoint}`);
+                       
+      // Calculate adjustment factor
+      const adjustmentFactor = bucket.avgPace / adjustmentData.basePace;
+      
+      // Calculate literature adjustment for comparison
+      const literatureAdj = calculateGradeAdjustment(midpoint);
+                           
+      bucketedData.push({
+        midpoint,
+        adjustmentFactor,
+        literatureAdj,
+        label: bucket.label,
+        binCount: bucket.binCount,
+        avgPace: bucket.avgPace
+      });
+    }
+  });
+}
 
   // Chart dimensions
   const chartHeight = 450;
@@ -226,41 +260,7 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientData }) => {
   }
 
   // Tooltip rendering - absolute div in chart container
-  const renderTooltip = () => {
-    if (!tooltipData) return null;
-    // Clamp the tooltip to the visible area if needed
-    const tooltipWidth = 180;
-    const tooltipHeight = 50;
-    let left = tooltipData.x + 15;
-    let top = tooltipData.y - tooltipHeight - 10;
-    // Clamp left and top
-    left = Math.max(left, 0);
-    top = Math.max(top, 0);
-    return (
-      <div
-        style={{
-          position: 'absolute',
-          pointerEvents: 'none',
-          left,
-          top,
-          width: tooltipWidth,
-          minHeight: tooltipHeight,
-          background: 'rgba(0,0,0,0.85)',
-          color: '#fff',
-          borderRadius: 6,
-          fontSize: 13,
-          padding: '8px 12px',
-          zIndex: 100,
-          boxShadow: '0 2px 8px #0003',
-          whiteSpace: 'pre-line',
-        }}
-      >
-       
-        
-      </div>
-    );
-  };
-
+  
   return (
     <div className="gradient-chart grade-adjustment-chart" style={{ marginTop: 32 }}>
       <h3>📊 Grade Adjustment - Personal vs Literature</h3>
@@ -283,16 +283,7 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientData }) => {
           padding: '16px 0'
         }}
       >
-        {/* Legend - positioned away from y-axis, smaller and more compact */}
-        <g transform="translate(80, 20)">
-          <rect width={180} height={55} rx={3} fill="white" fillOpacity={0.9} stroke="#e5e7eb" strokeWidth={1} />
-          <circle cx={10} cy={12} r={1.5} fillOpacity={0.6} fill="#ef4444" />
-          <text x={18} y={15} fontSize={10} fill="#333">Individual points</text>
-          <rect x={7} y={25} width={6} height={6} fill="#3b82f6" stroke="#fff" strokeWidth={1} />
-          <text x={18} y={30} fontSize={10} fill="#333">Bucket averages</text>
-          <line x1={10} x2={35} y1={42} y2={42} stroke="#3b82f6" strokeWidth={2} />
-          <text x={40} y={45} fontSize={10} fill="#333">Literature formula</text>
-        </g>
+      
 
         <svg width="100%" height={chartHeight + 40} style={{ overflow: 'visible' }}>
           {/* Y-axis grid lines */}
@@ -383,8 +374,9 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientData }) => {
               key={idx}
               cx={getX(point.gradientValue)}
               cy={getY(point.personalAdjustment)}
-              r={4}
+              r={3}
               fill="#ef4444"
+              fillOpacity={0.6} 
               stroke="#fff"
               strokeWidth={1}
               onMouseEnter={() => {
@@ -488,10 +480,20 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientData }) => {
               </text>
             </g>
           )}
+
+          {/* Legend - positioned inside chart, away from y-axis */}
+          <g transform="translate(80, 30)">
+            <rect width={180} height={55} rx={3} fill="white" fillOpacity={0.9} stroke="#e5e7eb" strokeWidth={1} />
+            <circle cx={10} cy={12} r={3} fillOpacity={0.6} fill="#ef4444" />
+            <text x={18} y={15} fontSize={10} fill="#333">Individual points</text>
+            <rect x={7} y={25} width={6} height={6} fill="#3b82f6" stroke="#fff" strokeWidth={1} />
+            <text x={18} y={30} fontSize={10} fill="#333">Bucket averages</text>
+            <line x1={10} x2={35} y1={42} y2={42} stroke="#3b82f6" strokeWidth={2} />
+            <text x={40} y={45} fontSize={10} fill="#333">Literature formula</text>
+          </g>
         </svg>
 
-        {/* Tooltip rendered on top of chart */}
-        {renderTooltip()}
+        
       </div>
 
       <div style={{ marginTop: 8, fontSize: 12, color: '#666', textAlign: 'center' }}>
