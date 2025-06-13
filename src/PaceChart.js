@@ -535,8 +535,8 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
                   x: getX(point.gradientValue),
                   y: getY(getPersonalAdjustment(point)),
                   gradient: point.gradient,
-                  personalAdj: getPersonalAdjustment(point).toFixed(2),
-                  literatureAdj: point.literatureAdjustment.toFixed(2),
+                  personalAdj: getPersonalAdjustment(point) != null ? getPersonalAdjustment(point).toFixed(2) : 'N/A',
+                  literatureAdj: point.literatureAdjustment != null ? point.literatureAdjustment.toFixed(2) : 'N/A',
                   binCount: point.binCount,
                   paceLabel: getPaceLabel(point)
                 });
@@ -562,8 +562,8 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
                     x: getX(bucket.midpoint),
                     y: getY(bucket.adjustmentFactor),
                     gradient: bucket.label,
-                    personalAdj: bucket.adjustmentFactor.toFixed(2),
-                    literatureAdj: bucket.literatureAdj.toFixed(2),
+                    personalAdj: bucket.adjustmentFactor != null ? bucket.adjustmentFactor.toFixed(2) : 'N/A',
+                    literatureAdj: bucket.literatureAdj != null ? bucket.literatureAdj.toFixed(2) : 'N/A',
                     binCount: bucket.binCount
                   });
                 }}

@@ -16,6 +16,9 @@ function App() {
   const [advancedAnalysis, setAdvancedAnalysis] = useState(null);
   const [analyzingPatterns, setAnalyzingPatterns] = useState(false);
   const [statType, setStatType] = useState('mean'); // Add state for mean/median toggle
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ percent: 0, current: 0, total: 0 });
+  const [processedFiles, setProcessedFiles] = useState(0);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -68,6 +71,110 @@ function App() {
       setUploading(false);
     }
   };
+
+const uploadAndAnalyzeBatch = async () => {
+  if (files.length === 0) {
+    setError('Please select files first');
+    return;
+  }
+
+  setUploading(true);
+  setError('');
+  setBatchProgress({ percent: 0, current: 0, total: 0 });
+  setProcessedFiles(0);
+  
+  try {
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+    formData.append('binLength', binLength.toString());
+
+    const response = await fetch(`${BACKEND_URL}/api/analyze-batch`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    // Handle Server-Sent Events
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let allResults = [];
+    let allErrors = [];
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value);
+
+      let lines = buffer.split('\n');
+      // Keep the last line in buffer if it's incomplete
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr) continue; // skip empty
+          try {
+            const data = JSON.parse(jsonStr);
+
+            if (data.type === 'progress') {
+              setBatchProgress({
+                percent: data.progressPercent,
+                current: data.batchIndex,
+                total: data.totalBatches
+              });
+              setProcessedFiles(data.filesProcessed);
+
+              if (data.batchResults) {
+                allResults = [...allResults, ...data.batchResults];
+              }
+              if (data.batchErrors) {
+                allErrors = [...allErrors, ...data.batchErrors];
+              }
+
+            } else if (data.type === 'complete') {
+              const finalResults = {
+                success: true,
+                results: data.results,
+                errors: data.errors,
+                summary: {
+                  totalFiles: data.totalFiles,
+                  successfulFiles: data.successfulFiles,
+                  binLength: data.binLength,
+                  totalBins: data.totalBins,
+                  avgBinsPerFile: Math.round(data.totalBins / data.successfulFiles)
+                }
+              };
+              setResults(finalResults);
+              console.log('Batch analysis complete:', finalResults);
+
+            } else if (data.type === 'error') {
+              throw new Error(data.error);
+            }
+
+          } catch (parseError) {
+            // Only log if the line is not empty and not just whitespace
+            if (jsonStr) {
+              console.error('Error parsing SSE data:', parseError, jsonStr);
+            }
+          }
+        }
+      }
+    }
+
+  } catch (err) {
+    console.error('Batch upload error:', err);
+    setError(`Failed to analyze files: ${err.message}`);
+  } finally {
+    setUploading(false);
+  }
+};
 
   const runAdvancedAnalysis = async () => {
     if (!results || !results.results) return;
@@ -153,6 +260,8 @@ function App() {
             <p className="file-count">✅ {files.length} files selected</p>
           )}
 
+          
+
           <div className="bin-config">
             <label htmlFor="binLength">Bin Length (meters):</label>
             <select 
@@ -168,20 +277,42 @@ function App() {
             </select>
           </div>
 
+          {/* Batch Mode Toggle */}
+<div className="batch-toggle">
+  <label>
+    <input
+      type="checkbox"
+      checked={batchMode}
+      onChange={(e) => setBatchMode(e.target.checked)}
+    />
+    Batch Mode (for 10+ files)
+  </label>
+</div>
+
           <button
-            onClick={uploadAndAnalyze}
+            onClick={batchMode ? uploadAndAnalyzeBatch : uploadAndAnalyze}
             disabled={uploading || files.length === 0}
             className={`upload-btn ${uploading ? 'uploading' : ''}`}
           >
-            {uploading ? '⏳ Analyzing...' : '🚀 Upload & Analyze'}
+            {uploading ? (
+              batchMode ? 
+              `⏳ Processing Batch ${batchProgress.current}/${batchProgress.total}...` : 
+              '⏳ Analyzing...'
+            ) : (
+              batchMode ? '🚀 Upload & Analyze (Batch)' : '🚀 Upload & Analyze'
+            )}
           </button>
 
-          {uploading && (
-            <div className="progress">
-              <div className="progress-bar"></div>
-              <p>Processing {files.length} files on server...</p>
-            </div>
-          )}
+          {/* Batch Progress */}
+{uploading && batchMode && (
+  <div className="batch-progress">
+    <div className="progress-bar" style={{ width: `${batchProgress.percent}%` }}></div>
+    <p>
+      Processing batch {batchProgress.current} of {batchProgress.total} 
+      ({batchProgress.percent}%) • {processedFiles} files completed
+    </p>
+  </div>
+)}
 
           {error && (
             <div className="error">
@@ -343,3 +474,8 @@ function App() {
 }
 
 export default App;
+
+// Calculate summary metrics from the results array
+const successfulFiles = results.results.length;
+const totalBins = results.results.reduce((sum, r) => sum + (r.bins?.length || 0), 0);
+const avgBinsPerFile = successfulFiles > 0 ? Math.round(totalBins / successfulFiles) : 0;
