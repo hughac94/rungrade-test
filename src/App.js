@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './App.css';
-import PaceByGradientDetailChart, { GradientPaceChart, GradeAdjustmentChart} from './PaceChart';
+import /* PaceByGradientDetailChart, */ { GradientPaceChart, GradeAdjustmentChart} from './PaceChart';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
@@ -258,11 +258,16 @@ function App() {
                 {advancedAnalysis.gradientPace && (
                   <GradientPaceChart gradientData={advancedAnalysis.gradientPace} />
                 )}
+                {/*}
                 {advancedAnalysis.paceByGradientChart && (
                   <PaceByGradientDetailChart data={advancedAnalysis.paceByGradientChart} />
                 )}
+                */}
                 {advancedAnalysis.gradeAdjustment && (
-                  <GradeAdjustmentChart adjustmentData={advancedAnalysis.gradeAdjustment} />
+                  <GradeAdjustmentChart 
+                    adjustmentData={advancedAnalysis.gradeAdjustment}
+                    gradientPaceData={advancedAnalysis.gradientPace} 
+                  />
                 )}
               </div>
             )}

@@ -608,3 +608,15 @@
 .grade-adjustment-chart text {
   font-family: system-ui, -apple-system, sans-serif;
 }
+
+
+.tooltip {
+  pointer-events: none;
+  opacity: 0;
+  animation: fadeIn 0.15s forwards;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
