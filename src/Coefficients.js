@@ -1,3 +1,14 @@
+/**
+ * Grade Adjustment Polynomial Coefficients
+ * Based on Strava's research: https://medium.com/strava-engineering/an-improved-gap-model-8b07ae8886c3
+ */
+
+/**
+ * Calculate grade adjustment factor for a given gradient percentage
+ * @param {number} gradient - Gradient percentage (-35 to 35)
+ * @returns {number} - Adjustment factor (pace multiplier)
+ */
+
 export const GAP_COEFFICIENTS = {
   a: -5.294439830640173e-7,
   b: -0.000003989571857841264,
@@ -13,3 +24,6 @@ export function calculateGradeAdjustment(gradient) {
          GAP_COEFFICIENTS.d * gradient +
          GAP_COEFFICIENTS.e;
 }
+
+
+

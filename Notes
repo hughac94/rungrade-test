@@ -5,9 +5,6 @@ Memory Management:
 🔧 Solution: Process in batches of 10-20 files, then aggregate results
 Coefficient Duplication:
 
-🚨 Grade adjustment formula: Same polynomial coefficients duplicated in both frontend and backend
-🔧 Solution: Move to shared constants file or pass from backend to frontend
-Processing Optimization:
 
 🚨 Sequential processing: Files are processed one-by-one
 🔧 Solution: Use worker threads (Node.js) to parallelize file processing

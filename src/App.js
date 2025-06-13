@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
 import /* PaceByGradientDetailChart, */ { GradientPaceChart, GradeAdjustmentChart} from './PaceChart';
+import StatToggle from './StatToggle';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
@@ -14,6 +15,7 @@ function App() {
   const [binLength, setBinLength] = useState(50); // New state for bin length
   const [advancedAnalysis, setAdvancedAnalysis] = useState(null);
   const [analyzingPatterns, setAnalyzingPatterns] = useState(false);
+  const [statType, setStatType] = useState('mean'); // Add state for mean/median toggle
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -39,7 +41,7 @@ function App() {
       
       formData.append('binLength', binLength.toString()); // Add bin length to form data
 
-      console.log(`Uploading ${files.length} files with ${binLength}m bins`);
+   
 
       const response = await fetch(`${BACKEND_URL}/api/analyze-with-bins`, {
         method: 'POST',
@@ -73,7 +75,7 @@ function App() {
     setAnalyzingPatterns(true);
     
     try {
-      console.log('Running advanced pattern analysis...');
+      
       
       const response = await fetch(`${BACKEND_URL}/api/advanced-analysis`, {
         method: 'POST',
@@ -98,6 +100,14 @@ function App() {
         throw new Error(data.error || 'Analysis failed');
       }
       
+      if (data.success) {
+  
+  setAdvancedAnalysis(data.analyses);
+} else {
+  throw new Error(data.error || 'Analysis failed');
+}
+
+
     } catch (err) {
       console.error('Advanced analysis error:', err);
       setError(`Advanced analysis failed: ${err.message}`);
@@ -254,19 +264,27 @@ function App() {
             {/* Advanced Analysis Results */}
             {advancedAnalysis && (
               <div className="advanced-analysis">
-                <h3>🔬 Advanced Pattern Analysis</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3>🔬 Advanced Pattern Analysis</h3>
+                  <StatToggle 
+                    value={statType} 
+                    onChange={setStatType}
+                    style={{ marginLeft: 'auto' }}
+                  />
+                </div>
+                
                 {advancedAnalysis.gradientPace && (
-                  <GradientPaceChart gradientData={advancedAnalysis.gradientPace} />
+                  <GradientPaceChart 
+                    gradientData={advancedAnalysis.gradientPace} 
+                    statType={statType}
+                  />
                 )}
-                {/*}
-                {advancedAnalysis.paceByGradientChart && (
-                  <PaceByGradientDetailChart data={advancedAnalysis.paceByGradientChart} />
-                )}
-                */}
-                {advancedAnalysis.gradeAdjustment && (
+                
+                {advancedAnalysis.gradeAdjustment && advancedAnalysis.gradientPace && (
                   <GradeAdjustmentChart 
                     adjustmentData={advancedAnalysis.gradeAdjustment}
-                    gradientData={advancedAnalysis.gradientPace} 
+                    gradientPaceData={advancedAnalysis.gradientPace}
+                    statType={statType}
                   />
                 )}
               </div>

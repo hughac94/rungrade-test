@@ -6,118 +6,221 @@ const CustomTooltip = ({ content, visible, x, y }) => {
   if (!visible) return null;
   
   return (
-    <div 
-      className="custom-tooltip" 
-      style={{
-        position: 'absolute',
-        left: `${x}px`,
-        top: `${y}px`,
-        backgroundColor: 'rgba(0,0,0,0.75)',
-        color: '#fff',
-        padding: '4px 8px',
-        borderRadius: '4px',
-        fontSize: '11px',
-        zIndex: 1000,
-        pointerEvents: 'none',
-        whiteSpace: 'nowrap',
-        transform: 'translate(-50%, -100%)',
-        marginTop: '-5px'
-      }}
-    >
+    <div style={{
+      position: 'absolute',
+      left: x,
+      top: y - 35,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      color: 'white',
+      padding: '8px 12px',
+      borderRadius: '4px',
+      fontSize: '12px',
+      whiteSpace: 'nowrap',
+      zIndex: 1000,
+      pointerEvents: 'none',
+      transform: 'translateX(-50%)'
+    }}>
       {content}
     </div>
   );
 };
 
-
-const GradientPaceChart = ({ gradientData }) => {
+const GradientPaceChart = ({ gradientData, statType = 'mean' }) => {
   const [tooltip, setTooltip] = React.useState({ visible: false, content: '', x: 0, y: 0 });
-  const chartRef = React.useRef(null);
-  
+  const chartRef = React.useRef();
+
   if (!gradientData || !gradientData.buckets || gradientData.buckets.length === 0) {
     return (
-      <div className="gradient-chart">
-        <h3>📈 Pace vs Gradient Analysis - by bucket</h3>
-        <p>No gradient data available</p>
+      <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+        No gradient pace data available
       </div>
     );
   }
 
-  const maxPace = Math.max(...gradientData.buckets.map(b => b.avgPace));
-  const minPace = Math.min(...gradientData.buckets.map(b => b.avgPace));
+  // Choose which pace values to display based on statType
+  const getPaceValue = (bucket) => statType === 'median' ? bucket.medianPace : bucket.avgPace;
+  const getPaceLabel = (bucket) => statType === 'median' ? bucket.medianPaceMinPerKm : bucket.paceMinPerKm;
+
+  // Calculate pace range for bar heights
+  const paceValues = gradientData.buckets.map(bucket => getPaceValue(bucket)).filter(pace => pace);
+  const maxPace = Math.max(...paceValues);
+  const minPace = Math.min(...paceValues);
   const paceRange = maxPace - minPace;
 
-  // Function to get color based on gradient range
   const getBarColor = (bucket) => {
-    // Extract the numeric gradient from the bucket (use the midpoint of the range)
-    const gradientMidpoint = (bucket.min + bucket.max) / 2;
-    
-  
-    
-    if (gradientMidpoint < 0) {
-      return '#10b981'; // Green for downhill
-    } else if (gradientMidpoint <= 5) {
-      return '#3b82f6'; // Blue for flat to moderate uphill
-    } else {
-      return '#ef4444'; // Red for steep uphill
-    }
+    const gradient = parseFloat(bucket.label.split(' ')[0]);
+    if (gradient < 0) return '#10b981'; // Green for downhill
+    if (gradient <= 5) return '#3b82f6'; // Blue for flat to moderate
+    return '#ef4444'; // Red for steep uphill
   };
 
   return (
-    <div className="gradient-chart" ref={chartRef} style={{ position: 'relative' }}>
-      <h3>📈 Pace vs Gradient Analysis</h3>
-      <p className="chart-subtitle">
-        How your pace changes with gradient • {gradientData.totalBinsAnalyzed} bins analyzed
-      </p>
-      
-      <div className="chart-container">
-        <div className="chart-bars">
+    <div ref={chartRef} style={{ 
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      width: '100%',
+      marginTop: 32,
+      marginBottom: 40
+    }}>
+      <div style={{
+        position: 'relative',
+        background: '#fff',
+        borderRadius: 8,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        padding: '20px',
+        maxWidth: '900px',
+        width: '100%',
+        margin: '0 auto'
+      }}>
+        {/* Title and subtitle inside white box */}
+        <h3 style={{ 
+          textAlign: 'center', 
+          marginBottom: 8,
+          marginTop: 0,
+          color: '#333'
+        }}>
+          📈 Pace vs Gradient Analysis
+        </h3>
+        <p style={{ 
+          textAlign: 'center', 
+          maxWidth: '800px',
+          marginBottom: 20,
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          color: '#666',
+          fontSize: '14px'
+        }}>
+          How your pace changes with gradient • {gradientData.totalBinsAnalyzed} bins analyzed
+        </p>
+
+        {/* Chart bars */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'end',
+          gap: '8px',
+          width: '100%',
+          maxWidth: '800px',
+          margin: '0 auto 20px auto'
+        }}>
           {gradientData.buckets.map((bucket, index) => {
-            const barHeight = paceRange > 0 ? ((bucket.avgPace - minPace) / paceRange) * 200 + 20 : 40;
+            const barHeight = paceRange > 0 ? ((getPaceValue(bucket) - minPace) / paceRange) * 200 + 20 : 40;
             const barColor = getBarColor(bucket);
             
             return (
-              <div key={index} className="bar-container">
+              <div key={index} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                minWidth: '50px'
+              }}>
                 <div 
-                  className="bar" 
                   style={{ 
                     height: `${barHeight}px`,
-                    backgroundColor: barColor
+                    backgroundColor: barColor,
+                    width: '40px',
+                    borderRadius: '4px 4px 0 0',
+                    position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'opacity 0.2s',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'center',
+                    paddingBottom: '4px'
                   }}
                   onMouseEnter={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const chartRect = chartRef.current.getBoundingClientRect();
                     setTooltip({
                       visible: true,
-                      content: `${bucket.paceMinPerKm} min/km (${bucket.binCount} bins)`,
+                      content: `${getPaceLabel(bucket)} min/km (${bucket.binCount} bins)`,
                       x: rect.left + rect.width/2 - chartRect.left,
                       y: rect.top - chartRect.top
                     });
                   }}
                   onMouseLeave={() => setTooltip({ ...tooltip, visible: false })}
                 >
-                  <div className="bar-value">{bucket.paceMinPerKm}</div>
+                  <div style={{
+                    fontSize: '10px',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+                  }}>
+                    {getPaceLabel(bucket)}
+                  </div>
                 </div>
-                <div className="bar-label">{bucket.label}</div>
-                <div className="bar-count">{bucket.binCount} bins</div>
+                <div style={{
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  marginTop: '4px',
+                  textAlign: 'center',
+                  color: '#333'
+                }}>
+                  {bucket.label}
+                </div>
+                <div style={{
+                  fontSize: '9px',
+                  color: '#666',
+                  marginTop: '2px'
+                }}>
+                  {bucket.binCount} bins
+                </div>
               </div>
             );
           })}
         </div>
-      </div>
-      
-      <div className="chart-legend">
-        <div className="legend-item">
-          <div className="legend-color" style={{backgroundColor: '#10b981'}}></div>
-          <span>Downhill (negative gradient)</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color" style={{backgroundColor: '#3b82f6'}}></div>
-          <span>Flat to moderate uphill (0-5%)</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color" style={{backgroundColor: '#ef4444'}}></div>
-          <span>Steep uphill (+5%)</span>
+        
+        {/* Legend inside white box */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '24px',
+          marginTop: '16px',
+          flexWrap: 'wrap',
+          paddingTop: '16px',
+          borderTop: '1px solid #e5e7eb'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{
+              backgroundColor: '#10b981',
+              width: '16px',
+              height: '16px',
+              borderRadius: '2px'
+            }}></div>
+            <span style={{ fontSize: '12px', color: '#333' }}>Downhill (negative gradient)</span>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{
+              backgroundColor: '#3b82f6',
+              width: '16px',
+              height: '16px',
+              borderRadius: '2px'
+            }}></div>
+            <span style={{ fontSize: '12px', color: '#333' }}>Flat to moderate uphill (0-5%)</span>
+          </div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <div style={{
+              backgroundColor: '#ef4444',
+              width: '16px',
+              height: '16px',
+              borderRadius: '2px'
+            }}></div>
+            <span style={{ fontSize: '12px', color: '#333' }}>Steep uphill (+5%)</span>
+          </div>
         </div>
       </div>
 
@@ -126,26 +229,23 @@ const GradientPaceChart = ({ gradientData }) => {
   );
 };
 
-
-const GradeAdjustmentChart = ({ adjustmentData, gradientData }) => {
+const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'mean' }) => {
   // Tooltip state
   const [tooltipData, setTooltipData] = React.useState(null);
 
-console.log("GradeAdjustmentChart data check:");
-console.log("- adjustmentData:", adjustmentData);
-console.log("- gradientata:", gradientData);
+  console.log("GradeAdjustmentChart data check:");
+  console.log("- adjustmentData:", adjustmentData);
+  console.log("- gradientata:", gradientPaceData);
 
-
-console.log("Bucket details:");
-gradientData.buckets.forEach((bucket, index) => {
-  console.log(`Bucket ${index}:`, {
-    label: bucket.label,
-    min: bucket.min,
-    max: bucket.max,
-    calculated_midpoint: (bucket.min + bucket.max) / 2
+  console.log("Bucket details:");
+  gradientPaceData.buckets.forEach((bucket, index) => {
+    console.log(`Bucket ${index}:`, {
+      label: bucket.label,
+      min: bucket.min,
+      max: bucket.max,
+      calculated_midpoint: (bucket.min + bucket.max) / 2
+    });
   });
-});
-
 
   if (
     !adjustmentData ||
@@ -155,80 +255,111 @@ gradientData.buckets.forEach((bucket, index) => {
     return null;
   }
 
+  // Choose which values to display based on statType
   const data = adjustmentData.adjustmentData;
-
-
-  // Calculate bucketed adjustment factors
- const bucketedData = [];
-if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
-  console.log("Processing buckets:", gradientData.buckets);
+  const getPersonalAdjustment = (point) => {
+    const value = statType === 'median' ? point.personalAdjustmentMedian : point.personalAdjustment;
+    return (value != null && !isNaN(value)) ? value : 0;
+  };
+  const getPaceLabel = (point) => {
+    const label = statType === 'median' ? point.medianPaceLabel : point.paceLabel;
+    return label || 'N/A';
+  };
+  const getBasePace = () => {
+    const value = statType === 'median' ? adjustmentData.basePaceMedian : adjustmentData.basePace;
+    return (value != null && !isNaN(value)) ? value : 1;
+  };
+  const getBasePaceLabel = () => statType === 'median' ? adjustmentData.basePaceMedianLabel : adjustmentData.basePaceLabel;
   
-  gradientData.buckets.forEach(bucket => {
-    if (bucket.avgPace && bucket.binCount > 0) {
-      // Fix positioning based on bucket labels
-      let midpoint;
-      
-      if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) {
-        midpoint = -27.5; // Force position for ≤-25% bucket
-      } else if (bucket.label.includes('≥25') || bucket.label.includes('>=25')) {
-        midpoint = 27.5;  // Force position for ≥25% bucket
-      } else {
-        // For regular buckets, use actual midpoint
-        midpoint = (bucket.min + bucket.max) / 2;
-      }
-      
-      console.log(`Bucket "${bucket.label}" positioned at ${midpoint}`);
-                       
-      // Calculate adjustment factor
-      const adjustmentFactor = bucket.avgPace / adjustmentData.basePace;
-      
-      // Calculate literature adjustment for comparison
-      const literatureAdj = calculateGradeAdjustment(midpoint);
+  // Update bucketed data calculation
+  const bucketedData = [];
+  if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
+    gradientPaceData.buckets.forEach(bucket => {
+      if (bucket.binCount > 0) {
+        const bucketPace = statType === 'median' ? bucket.medianPace : bucket.avgPace;
+        if (bucketPace) {
+          // Fix positioning based on bucket labels
+          let midpoint;
+          
+          if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) {
+            midpoint = -27.5; // Force position for ≤-25% bucket
+          } else if (bucket.label.includes('≥25') || bucket.label.includes('>=25')) {
+            midpoint = 27.5;  // Force position for ≥25% bucket
+          } else {
+            // For regular buckets, use actual midpoint
+            midpoint = (bucket.min + bucket.max) / 2;
+          }
+          
+          console.log(`Bucket "${bucket.label}" positioned at ${midpoint}`);
                            
-      bucketedData.push({
-        midpoint,
-        adjustmentFactor,
-        literatureAdj,
-        label: bucket.label,
-        binCount: bucket.binCount,
-        avgPace: bucket.avgPace
-      });
-    }
-  });
-}
+          // Calculate adjustment factor
+          const adjustmentFactor = bucketPace / getBasePace();
+          
+          // Calculate literature adjustment for comparison
+          const literatureAdj = calculateGradeAdjustment(midpoint);
+                           
+          bucketedData.push({
+            midpoint,
+            adjustmentFactor,
+            literatureAdj,
+            label: bucket.label,
+            binCount: bucket.binCount,
+            avgPace: bucket.avgPace
+          });
+        }
+      }
+    });
+  }
 
+  console.log("Debug median data:");
+  console.log("- statType:", statType);
+  console.log("- adjustmentData sample:", adjustmentData.adjustmentData[0]);
+  console.log("- basePace:", getBasePace());
+  console.log("- first point adjustment:", getPersonalAdjustment(data[0]));
+  
   // Chart dimensions
-  const chartHeight = 450;
-  const padding = 40;
+  const chartHeight = 400; // Reduced to make room for title/subtitle
   const width = 900;
-  const chartWidth = width - 2 * padding;
+  const chartPadding = 60; // Increased padding for better spacing
+  const chartWidth = width - 2 * chartPadding;
+
+  // Calculate what the polynomial actually reaches across your gradient range
+  const polynomialValues = [];
+  for (let x = -30; x <= 30; x += 2) {
+    polynomialValues.push(calculateGradeAdjustment(x));
+  }
 
   // Find min/max adjustment values for scaling
-  const allPersonalAdj = data.map(d => d.personalAdjustment);
-  const allLiteratureAdj = data.map(d => d.literatureAdjustment);
+  const validAdjustments = data
+    .map(d => getPersonalAdjustment(d))
+    .filter(adj => !isNaN(adj) && adj > 0);
 
-  const minAdj = Math.min(
-    ...allPersonalAdj,
-    ...allLiteratureAdj,
-    ...bucketedData.map(b => b.adjustmentFactor)
-  ) * 0.95;
-  const maxAdj = Math.max(
-    ...allPersonalAdj,
-    ...allLiteratureAdj,
-    ...bucketedData.map(b => b.adjustmentFactor)
-  ) * 1.05;
-  const adjRange = maxAdj - minAdj;
+  // Combine all adjustment values
+  const allAdjustmentValues = [
+    ...validAdjustments,
+    ...polynomialValues
+  ];
+
+  // Calculate scale
+  const maxAdjustment = Math.max(...allAdjustmentValues);
+  const minAdjustment = Math.min(...allAdjustmentValues);
+  const range = maxAdjustment - minAdjustment;
+  const scalePadding = range * 0.1;
+  const yMin = Math.max(minAdjustment - scalePadding, 0.3);
+  const yMax = maxAdjustment + scalePadding;
+
+  console.log(`Y-axis scale: ${yMin.toFixed(2)} to ${yMax.toFixed(2)}`);
 
   // Scale for x-axis (gradient)
-  const gradientMin = -35;
-  const gradientMax = 35;
+  const gradientMin = -30;
+  const gradientMax = 30;
   const gradientRange = gradientMax - gradientMin;
 
   const getX = gradientValue =>
-    ((gradientValue - gradientMin) / gradientRange) * chartWidth + padding;
+    ((gradientValue - gradientMin) / gradientRange) * chartWidth + chartPadding;
 
   const getY = adjustmentValue =>
-    chartHeight - ((adjustmentValue - minAdj) / adjRange) * (chartHeight - padding) - padding / 2;
+    chartHeight - ((adjustmentValue - yMin) / (yMax - yMin)) * (chartHeight - chartPadding) + 40; // Fixed positioning
 
   // Formatter for y-axis labels
   const formatAdjustment = value => value.toFixed(2);
@@ -246,8 +377,8 @@ if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
   const adjustmentStep = 0.2;
   const yGridLines = [];
   for (
-    let adj = Math.floor(minAdj / adjustmentStep) * adjustmentStep;
-    adj <= maxAdj;
+    let adj = Math.floor(yMin / adjustmentStep) * adjustmentStep;
+    adj <= yMax;
     adj += adjustmentStep
   ) {
     yGridLines.push(adj);
@@ -255,43 +386,63 @@ if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
 
   // Generate x-axis grid lines (every 5%)
   const xGridLines = [];
-  for (let g = -35; g <= 35; g += 5) {
+  for (let g = -30; g <= 30; g += 5) {
     xGridLines.push(g);
   }
-
-  // Tooltip rendering - absolute div in chart container
   
   return (
-    <div className="gradient-chart grade-adjustment-chart" style={{ marginTop: 32 }}>
-      <h3>📊 Grade Adjustment - Personal vs Literature</h3>
-      <p className="chart-subtitle">
-        How your pace changes relative to flat ground (1.0 = same as flat) •
-        Base pace at 0%: {adjustmentData.basePaceLabel} min/km •
-        {data.reduce((sum, d) => sum + d.binCount, 0)} bins analyzed
-      </p>
+    <div style={{ 
+      marginTop: 32,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      width: '100%'
+    }}>
+      <div style={{
+        position: 'relative',
+        background: '#fff',
+        borderRadius: 8,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        padding: '20px',
+        maxWidth: '900px',
+        width: '100%',
+        margin: '0 auto'
+      }}>
+        {/* Title and subtitle inside white box */}
+        <h3 style={{ 
+          textAlign: 'center', 
+          marginBottom: 8,
+          marginTop: 0,
+          color: '#333'
+        }}>
+          📊 Grade Adjustment - Personal vs Literature
+        </h3>
+        <p style={{ 
+          textAlign: 'center', 
+          maxWidth: '800px',
+          marginBottom: 20,
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          color: '#666',
+          fontSize: '14px'
+        }}>
+          How your pace changes relative to flat ground (1.0 = same as flat) • 
+          Base pace ({statType}) at 0%: {getBasePaceLabel()} min/km •  
+          {data.reduce((sum, d) => sum + d.binCount, 0)} bins analyzed
+        </p>
 
-      <div
-        style={{
-          position: 'relative',
-          height: chartHeight + 40,
-          width: '100%',
-          maxWidth: width,
-          margin: '0 auto',
-          background: '#fff',
-          borderRadius: 8,
-          boxShadow: '0 2px 8px #0001',
-          padding: '16px 0'
-        }}
-      >
-      
-
-        <svg width="100%" height={chartHeight + 40} style={{ overflow: 'visible' }}>
+        {/* Chart SVG */}
+        <svg width="100%" height={chartHeight + 80} style={{ 
+          overflow: 'visible',
+          display: 'block',
+          margin: '0 auto'
+        }}>
           {/* Y-axis grid lines */}
           {yGridLines.map(value => (
             <g key={`y-${value}`}>
               <line
-                x1={padding}
-                x2={width - padding}
+                x1={chartPadding}
+                x2={width - chartPadding}
                 y1={getY(value)}
                 y2={getY(value)}
                 stroke="#e5e7eb"
@@ -299,7 +450,7 @@ if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
                 strokeWidth={1}
               />
               <text
-                x={padding - 8}
+                x={chartPadding - 8}
                 y={getY(value)}
                 fontSize={10}
                 fill="#666"
@@ -317,15 +468,15 @@ if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
               <line
                 x1={getX(value)}
                 x2={getX(value)}
-                y1={padding / 2}
-                y2={chartHeight - padding / 2}
+                y1={40}
+                y2={chartHeight + 40}
                 stroke="#e5e7eb"
                 strokeDasharray="4 2"
                 strokeWidth={1}
               />
               <text
                 x={getX(value)}
-                y={chartHeight + 16}
+                y={chartHeight + 56}
                 fontSize={10}
                 fill="#666"
                 textAnchor="middle"
@@ -337,30 +488,30 @@ if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
 
           {/* Highlight 1.0 (no adjustment) line */}
           <line
-            x1={padding}
-            x2={width - padding}
+            x1={chartPadding}
+            x2={width - chartPadding}
             y1={getY(1.0)}
             y2={getY(1.0)}
             stroke="#888"
             strokeWidth={1}
           />
 
-          {/* X-axis */}
+          {/* X-axis - positioned at bottom */}
           <line
-            x1={padding}
-            x2={width - padding}
-            y1={chartHeight - padding / 2}
-            y2={chartHeight - padding / 2}
+            x1={chartPadding}
+            x2={width - chartPadding}
+            y1={chartHeight + 40}
+            y2={chartHeight + 40}
             stroke="#888"
             strokeWidth={1}
           />
 
           {/* Y-axis */}
           <line
-            x1={padding}
-            x2={padding}
-            y1={padding / 2}
-            y2={chartHeight - padding / 2}
+            x1={chartPadding}
+            x2={chartPadding}
+            y1={40}
+            y2={chartHeight + 40}
             stroke="#888"
             strokeWidth={1}
           />
@@ -373,20 +524,21 @@ if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
             <circle
               key={idx}
               cx={getX(point.gradientValue)}
-              cy={getY(point.personalAdjustment)}
-              r={3}
+              cy={getY(getPersonalAdjustment(point))}
+              r={4}
               fill="#ef4444"
-              fillOpacity={0.6} 
+              fillOpacity={0.4}
               stroke="#fff"
               strokeWidth={1}
               onMouseEnter={() => {
                 setTooltipData({
                   x: getX(point.gradientValue),
-                  y: getY(point.personalAdjustment),
+                  y: getY(getPersonalAdjustment(point)),
                   gradient: point.gradient,
-                  personalAdj: point.personalAdjustment.toFixed(2),
+                  personalAdj: getPersonalAdjustment(point).toFixed(2),
                   literatureAdj: point.literatureAdjustment.toFixed(2),
-                  binCount: point.binCount
+                  binCount: point.binCount,
+                  paceLabel: getPaceLabel(point)
                 });
               }}
               onMouseLeave={() => setTooltipData(null)}
@@ -432,9 +584,9 @@ if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
             </g>
           ))}
 
-          {/* Tooltip rendering - SVG group for better control */}
+          {/* Tooltip rendering */}
           {tooltipData && (
-            <g className="tooltip">
+            <g>
               <rect
                 x={tooltipData.x + 8}
                 y={tooltipData.y - 45}
@@ -481,32 +633,37 @@ if (gradientData && gradientData.buckets && adjustmentData?.basePace) {
             </g>
           )}
 
-          {/* Legend - positioned inside chart, away from y-axis */}
+          {/* Legend inside SVG */}
           <g transform="translate(80, 30)">
             <rect width={180} height={55} rx={3} fill="white" fillOpacity={0.9} stroke="#e5e7eb" strokeWidth={1} />
             <circle cx={10} cy={12} r={3} fillOpacity={0.6} fill="#ef4444" />
             <text x={18} y={15} fontSize={10} fill="#333">Individual points</text>
             <rect x={7} y={25} width={6} height={6} fill="#3b82f6" stroke="#fff" strokeWidth={1} />
             <text x={18} y={30} fontSize={10} fill="#333">Bucket averages</text>
-            <line x1={10} x2={35} y1={42} y2={42} stroke="#3b82f6" strokeWidth={2} />
+            <line x1={10} x2={30} y1={42} y2={42} stroke="#3b82f6" strokeWidth={2} />
             <text x={40} y={45} fontSize={10} fill="#333">Literature formula</text>
           </g>
         </svg>
 
-        
-      </div>
-
-      <div style={{ marginTop: 8, fontSize: 12, color: '#666', textAlign: 'center' }}>
-        <span>
-          Adjustment factor = pace at gradient / pace at 0% gradient • Higher = slower pace
-        </span>
+        {/* Bottom explanation inside white box */}
+        <div style={{ 
+          marginTop: 8, 
+          fontSize: 12, 
+          color: '#666', 
+          textAlign: 'center',
+          maxWidth: '800px',
+          marginLeft: 'auto',
+          marginRight: 'auto',
+          paddingTop: '16px',
+          borderTop: '1px solid #e5e7eb'
+        }}>
+          <span>
+            Adjustment factor = pace at gradient / pace at 0% gradient • Higher = slower pace
+          </span>
+        </div>
       </div>
     </div>
   );
 };
 
-
-
-export { GradientPaceChart };
-export { GradeAdjustmentChart};
-// export default PaceByGradientdDetailChart
+export { GradientPaceChart, GradeAdjustmentChart };
