@@ -174,7 +174,7 @@ const getBarColor = (bucket) => {
           })}
         </div>
         
-        {/* Legend inside white box */}
+      
         <div style={{
           display: 'flex',
           justifyContent: 'center',
@@ -236,11 +236,6 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
   const [tooltipData, setTooltipData] = React.useState(null);
 
 
-  console.log("GradeAdjustmentChart data check:");
-  console.log("- adjustmentData:", adjustmentData);
-  console.log("- gradientata:", gradientPaceData);
-
-  console.log("Bucket details:");
   gradientPaceData.buckets.forEach((bucket, index) => {
     console.log(`Bucket ${index}:`, {
       label: bucket.label,
@@ -322,16 +317,12 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
   });
 }
 
-  console.log("Debug median data:");
-  console.log("- statType:", statType);
-  console.log("- adjustmentData sample:", adjustmentData.adjustmentData[0]);
-  console.log("- basePace:", getBasePace());
-  console.log("- first point adjustment:", getPersonalAdjustment(data[0]));
+
   
   // Chart dimensions
   const chartHeight = 400; // Reduced to make room for title/subtitle
   const width = 900;
-  const chartPadding = 60; // Increased padding for better spacing
+  const chartPadding = 30; // Increased padding for better spacing
   const chartWidth = width - 2 * chartPadding;
 
   // Calculate what the polynomial actually reaches across your gradient range
@@ -340,24 +331,10 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
     polynomialValues.push(calculateGradeAdjustment(x));
   }
 
-  // Find min/max adjustment values for scaling
-  const validAdjustments = data
-    .map(d => getPersonalAdjustment(d))
-    .filter(adj => !isNaN(adj) && adj > 0);
-
-  // Combine all adjustment values
-  const allAdjustmentValues = [
-    ...validAdjustments,
-    ...polynomialValues
-  ];
-
+ 
   // Calculate scale
-  const maxAdjustment = Math.max(...allAdjustmentValues);
-  const minAdjustment = Math.min(...allAdjustmentValues);
-  const range = maxAdjustment - minAdjustment;
-  const scalePadding = range * 0.1;
-  const yMin = Math.max(minAdjustment - scalePadding, 0.3);
-  const yMax = maxAdjustment + scalePadding;
+  const yMin = 0.4;
+  const yMax = 3.7;
 
   console.log(`Y-axis scale: ${yMin.toFixed(2)} to ${yMax.toFixed(2)}`);
 
@@ -370,7 +347,7 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
     ((gradientValue - gradientMin) / gradientRange) * chartWidth + chartPadding;
 
   const getY = adjustmentValue =>
-    chartHeight - ((adjustmentValue - yMin) / (yMax - yMin)) * (chartHeight - chartPadding) + 40; // Fixed positioning
+    chartHeight - ((adjustmentValue - yMin) / (yMax - yMin)) * (chartHeight - chartPadding); // Fixed positioning
 
   // Formatter for y-axis labels
   const formatAdjustment = value => value.toFixed(2);
@@ -403,7 +380,7 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
   
   return (
     <div style={{ 
-      marginTop: 32,
+      marginTop: 16,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -443,7 +420,7 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
         </p>
 
         {/* Chart SVG */}
-        <svg width="100%" height={chartHeight + 80} style={{ 
+        <svg width="100%" height={chartHeight + 25} style={{ 
           overflow: 'visible',
           display: 'block',
           margin: '0 auto'
@@ -477,17 +454,17 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
           {xGridLines.map(value => (
             <g key={`x-${value}`}>
               <line
-                x1={getX(value)}
-                x2={getX(value)}
-                y1={40}
-                y2={chartHeight + 40}
-                stroke="#e5e7eb"
-                strokeDasharray="4 2"
-                strokeWidth={1}
+                  x1={getX(value)}
+                  x2={getX(value)}
+                  y1={getY(yMax)}
+                  y2={getY(yMin)}
+                  stroke="#e5e7eb"
+                  strokeDasharray="4 2"
+                  strokeWidth={1}
               />
               <text
                 x={getX(value)}
-                y={chartHeight + 56}
+                y={getY(0.4) + 18}
                 fontSize={10}
                 fill="#666"
                 textAnchor="middle"
@@ -501,28 +478,29 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
           <line
             x1={chartPadding}
             x2={width - chartPadding}
-            y1={getY(1.0)}
-            y2={getY(1.0)}
+            y1={getY(0.4)}
+            y2={getY(0.4)}
             stroke="#888"
             strokeWidth={1}
           />
 
-          {/* X-axis - positioned at bottom */}
           <line
             x1={chartPadding}
             x2={width - chartPadding}
-            y1={chartHeight + 40}
-            y2={chartHeight + 40}
+            y1={getY(1)}
+            y2={getY(1)}
             stroke="#888"
             strokeWidth={1}
+            strokeDasharray="4 2"
           />
+
 
           {/* Y-axis */}
           <line
             x1={chartPadding}
             x2={chartPadding}
-            y1={40}
-            y2={chartHeight + 40}
+            y1={getY(yMax)}
+            y2={getY(yMin)}
             stroke="#888"
             strokeWidth={1}
           />
@@ -660,8 +638,8 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
             </g>
           )}
 
-          {/* Legend inside SVG */}
-          <g transform="translate(80, 30)">
+          {/* Legend inside SVG, top left within chart area */}
+          <g transform={`translate(${chartPadding + 10},${getY(yMax) + 10})`}>
             <rect width={180} height={55} rx={3} fill="white" fillOpacity={0.9} stroke="#e5e7eb" strokeWidth={1} />
             <circle cx={10} cy={12} r={3} fillOpacity={0.6} fill="#ef4444" />
             <text x={18} y={15} fontSize={10} fill="#333">Individual points</text>
