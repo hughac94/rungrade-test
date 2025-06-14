@@ -17,8 +17,10 @@ function App() {
   const [analyzingPatterns, setAnalyzingPatterns] = useState(false);
   const [statType, setStatType] = useState('mean'); // Add state for mean/median toggle
   const [batchMode, setBatchMode] = useState(false);
-  const [batchProgress, setBatchProgress] = useState({ percent: 0, current: 0, total: 0 });
-  const [processedFiles, setProcessedFiles] = useState(0);
+  const [batchProgress, setBatchProgress] = useState({ percent: 0, current: 0, total: 0, currentFile: '', filesProcessed: 0 });
+  const [batchResults, setBatchResults] = useState([]); // For live results
+  const [batchErrors, setBatchErrors] = useState([]);   // For live errors
+ 
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -80,98 +82,92 @@ const uploadAndAnalyzeBatch = async () => {
 
   setUploading(true);
   setError('');
-  setBatchProgress({ percent: 0, current: 0, total: 0 });
-  setProcessedFiles(0);
-  
+  setBatchProgress({ percent: 0, current: 0, total: files.length, currentFile: '', filesProcessed: 0 });
+  setBatchResults([]);
+  setBatchErrors([]);
+  setResults(null);
+
   try {
+    // STEP 1: Upload the files and get a batch ID
     const formData = new FormData();
     files.forEach(file => {
       formData.append('files', file);
     });
     formData.append('binLength', binLength.toString());
 
-    const response = await fetch(`${BACKEND_URL}/api/analyze-batch`, {
+    const uploadResponse = await fetch(`${BACKEND_URL}/api/upload-batch`, {
       method: 'POST',
       body: formData,
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    if (!uploadResponse.ok) {
+      throw new Error(`HTTP ${uploadResponse.status}: ${uploadResponse.statusText}`);
     }
 
-    // Handle Server-Sent Events
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let allResults = [];
-    let allErrors = [];
-    let buffer = '';
+    const uploadResult = await uploadResponse.json();
+    if (!uploadResult.success) {
+      throw new Error(uploadResult.error || 'File upload failed');
+    }
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    // STEP 2: Connect to the SSE endpoint to process the files
+    const eventSource = new EventSource(`${BACKEND_URL}/api/process-batch/${uploadResult.batchId}`);
 
-      buffer += decoder.decode(value);
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
 
-      let lines = buffer.split('\n');
-      // Keep the last line in buffer if it's incomplete
-      buffer = lines.pop();
+        console.log(`SSE Event: ${data.type}, File ${data.fileIndex || 0}/${data.totalFiles || 0}, Progress: ${data.progressPercent || 0}%`);
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const jsonStr = line.slice(6).trim();
-          if (!jsonStr) continue; // skip empty
-          try {
-            const data = JSON.parse(jsonStr);
-
-            if (data.type === 'progress') {
-              setBatchProgress({
-                percent: data.progressPercent,
-                current: data.batchIndex,
-                total: data.totalBatches
-              });
-              setProcessedFiles(data.filesProcessed);
-
-              if (data.batchResults) {
-                allResults = [...allResults, ...data.batchResults];
-              }
-              if (data.batchErrors) {
-                allErrors = [...allErrors, ...data.batchErrors];
-              }
-
-            } else if (data.type === 'complete') {
-              const finalResults = {
-                success: true,
-                results: data.results,
-                errors: data.errors,
-                summary: {
-                  totalFiles: data.totalFiles,
-                  successfulFiles: data.successfulFiles,
-                  binLength: data.binLength,
-                  totalBins: data.totalBins,
-                  avgBinsPerFile: Math.round(data.totalBins / data.successfulFiles)
-                }
-              };
-              setResults(finalResults);
-              console.log('Batch analysis complete:', finalResults);
-
-            } else if (data.type === 'error') {
-              throw new Error(data.error);
+        if (data.type === 'progress') {
+          setBatchProgress({
+            percent: data.progressPercent,
+            current: data.fileIndex,
+            total: data.totalFiles,
+            currentFile: data.currentFile,
+            filesProcessed: data.filesProcessed
+          });
+          setBatchResults([...data.resultsSoFar]);
+          setBatchErrors([...data.errorsSoFar]);
+        } else if (data.type === 'complete') {
+          setResults({
+            success: true,
+            results: data.results,
+            errors: data.errors,
+            summary: {
+              totalFiles: data.totalFiles,
+              successfulFiles: data.successfulFiles,
+              failedFiles: data.failedFiles,
             }
-
-          } catch (parseError) {
-            // Only log if the line is not empty and not just whitespace
-            if (jsonStr) {
-              console.error('Error parsing SSE data:', parseError, jsonStr);
-            }
-          }
+          });
+          setBatchProgress({ 
+            percent: 100, 
+            current: data.totalFiles, 
+            total: data.totalFiles, 
+            currentFile: '', 
+            filesProcessed: data.totalFiles 
+          });
+          eventSource.close();
+          setUploading(false);
+        } else if (data.type === 'error') {
+          throw new Error(data.error);
         }
+      } catch (parseError) {
+        console.error('Error parsing SSE data:', parseError, event.data);
+        setError(`Error parsing response: ${parseError.message}`);
+        eventSource.close();
+        setUploading(false);
       }
-    }
+    };
 
+    eventSource.onerror = (err) => {
+      console.error('EventSource error:', err);
+      setError('Connection to server lost');
+      eventSource.close();
+      setUploading(false);
+    };
   } catch (err) {
     console.error('Batch upload error:', err);
     setError(`Failed to analyze files: ${err.message}`);
-  } finally {
     setUploading(false);
   }
 };
@@ -285,7 +281,7 @@ const uploadAndAnalyzeBatch = async () => {
       checked={batchMode}
       onChange={(e) => setBatchMode(e.target.checked)}
     />
-    Batch Mode (for 10+ files)
+    Batch Mode (for multiple files)
   </label>
 </div>
 
@@ -308,9 +304,26 @@ const uploadAndAnalyzeBatch = async () => {
   <div className="batch-progress">
     <div className="progress-bar" style={{ width: `${batchProgress.percent}%` }}></div>
     <p>
-      Processing batch {batchProgress.current} of {batchProgress.total} 
-      ({batchProgress.percent}%) • {processedFiles} files completed
+      Processing file {batchProgress.current} of {batchProgress.total}
+      {batchProgress.currentFile && <>: <b>{batchProgress.currentFile}</b></>}
+      <br />
+      {batchProgress.percent}% • {batchProgress.filesProcessed} files completed
     </p>
+    <div style={{ marginTop: 10 }}>
+      <b>Processed Files:</b>
+      <ul style={{ maxHeight: 120, overflowY: 'auto', fontSize: 13, margin: 0, paddingLeft: 18 }}>
+        {batchResults.map((r, i) => (
+          <li key={i} style={{ color: r.hasHeartRateData ? '#007bff' : '#333' }}>
+            ✅ {r.filename}
+          </li>
+        ))}
+        {batchErrors.map((e, i) => (
+          <li key={`err-${i}`} style={{ color: 'red' }}>
+            ❌ {e.filename}: {e.error}
+          </li>
+        ))}
+      </ul>
+    </div>
   </div>
 )}
 
