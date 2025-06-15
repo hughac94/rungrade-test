@@ -235,6 +235,49 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
   // Tooltip state
   const [tooltipData, setTooltipData] = React.useState(null);
 
+  // Get insights automatically
+  const getInsights = () => {
+  if (!bucketedData || bucketedData.length === 0) return null;
+  
+  // Calculate deviations from literature model
+  const significantDeviations = bucketedData
+    .filter(b => Math.abs(b.adjustmentFactor - b.literatureAdj) > 0.1)
+    .map(b => ({
+      gradient: b.label,
+      midpoint: b.midpoint,
+      personal: b.adjustmentFactor,
+      literature: b.literatureAdj,
+      diff: b.adjustmentFactor - b.literatureAdj,
+      percentDiff: ((b.adjustmentFactor - b.literatureAdj) / b.literatureAdj * 100).toFixed(1)
+    }))
+    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+  
+  // Find largest downhill and uphill deviations
+  const uphillDeviations = significantDeviations.filter(d => d.midpoint > 0);
+  const downhillDeviations = significantDeviations.filter(d => d.midpoint < 0);
+  
+  const maxUphillDeviation = uphillDeviations.length > 0 ? uphillDeviations[0] : null;
+  const maxDownhillDeviation = downhillDeviations.length > 0 ? downhillDeviations[0] : null;
+  
+  // Find the biggest area for improvement (where you're most worse than average)
+  let biggestImprovement = null;
+  if (significantDeviations.length > 0) {
+    // Look for positive deviations (where you're slower than average)
+    const improvementAreas = significantDeviations.filter(d => d.diff > 0)
+      .sort((a, b) => b.diff - a.diff);
+    
+    if (improvementAreas.length > 0) {
+      biggestImprovement = improvementAreas[0];
+    }
+  }
+  
+  return { 
+    significantDeviations: significantDeviations.slice(0, 3), 
+    maxUphillDeviation, 
+    maxDownhillDeviation,
+    biggestImprovement
+  };
+};
 
   gradientPaceData.buckets.forEach((bucket, index) => {
     console.log(`Bucket ${index}:`, {
@@ -365,7 +408,7 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
   const adjustmentStep = 0.2;
   const yGridLines = [];
   for (
-    let adj = Math.floor(yMin / adjustmentStep) * adjustmentStep;
+      let adj = Math.floor(yMin / adjustmentStep) * adjustmentStep;
     adj <= yMax;
     adj += adjustmentStep
   ) {
@@ -609,7 +652,7 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
                 fontWeight="bold"
                 fill="#fff"
               >
-                Gradient: {tooltipData.gradient}%
+                Gradient: {tooltipData.gradient}
               </text>
               <text
                 x={tooltipData.x + 12}
@@ -665,10 +708,101 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
           <span>
             Adjustment factor = pace at gradient / pace at 0% gradient • Higher = slower pace
           </span>
+          {/* Interpretation Section */}
+<div style={{ 
+  marginTop: 20, 
+  fontSize: 14, 
+  color: '#333', 
+  maxWidth: '800px',
+  marginLeft: 'auto',
+  marginRight: 'auto',
+  paddingTop: '16px',
+  borderTop: '1px solid #e5e7eb',
+  textAlign: 'left'
+}}>
+  <h4 style={{ marginBottom: 10, fontSize: 16 }}>📋 Interpretation</h4>
+  
+  {getInsights() && (
+    <>
+      <p style={{ marginBottom: 8 }}>
+        This chart compares <strong>your personal pace adjustments</strong> (red circles and blue squares) with the 
+        <strong> Strava population average</strong> (blue line) based on the model from Strava's research.
+      </p>
+      
+      <p style={{ marginBottom: 8 }}>
+        <strong>What to look for:</strong> Where your points differ significantly from the blue line. 
+        A difference of 0.1x (10%) or more indicates a meaningful deviation from the average runner.
+      </p>
+      
+      {getInsights().maxUphillDeviation && (
+        <div style={{ marginBottom: 8 }}>
+          <strong>Uphill performance:</strong>{' '}
+          {getInsights().maxUphillDeviation.diff > 0 ? (
+            <span>
+              You slow down <span style={{ color: '#ef4444' }}>more than average</span> on {getInsights().maxUphillDeviation.gradient} gradients 
+              ({getInsights().maxUphillDeviation.percentDiff}% difference). This could be an area to focus training.
+            </span>
+          ) : (
+            <span>
+              You handle {getInsights().maxUphillDeviation.gradient} gradients <span style={{ color: '#10b981' }}>better than average </span> 
+              ({Math.abs(getInsights().maxUphillDeviation.percentDiff)}% difference). This is a relative strength!
+            </span>
+          )}
+        </div>
+      )}
+      
+      {getInsights().maxDownhillDeviation && (
+        <div style={{ marginBottom: 8 }}>
+          <strong>Downhill performance:</strong>{' '}
+          {getInsights().maxDownhillDeviation.diff > 0 ? (
+            <span>
+              On {getInsights().maxDownhillDeviation.gradient} gradients, you're <span style={{ color: '#ef4444' }}>not taking full advantage</span> of 
+              the descent ({getInsights().maxDownhillDeviation.percentDiff}% difference from average).
+            </span>
+          ) : (
+            <span>
+              You're <span style={{ color: '#10b981' }}>particularly good</span> at {getInsights().maxDownhillDeviation.gradient} descents, 
+              with {Math.abs(getInsights().maxDownhillDeviation.percentDiff)}% relatively better adjustment than average runners.
+            </span>
+          )}
+        </div>
+      )}
+      
+      {/* Biggest improvement opportunity - ADD THIS BLOCK HERE */}
+      {getInsights() && getInsights().biggestImprovement && (
+        <div style={{ 
+          marginTop: 16, 
+          marginBottom: 8,
+          padding: '12px 16px',
+          backgroundColor: '#fef2f2',
+          borderLeft: '4px solid #ef4444',
+          borderRadius: '4px'
+        }}>
+          <strong style={{ color: '#b91c1c' }}>📈 Biggest improvement opportunity:</strong>{' '}
+          <span>
+            Your {getInsights().biggestImprovement.gradient} gradient performance is {getInsights().biggestImprovement.percentDiff}% relativley slower 
+            than the modelled average runner. Focused training on this gradient could yield your biggest gains.
+          </span>
+        </div>
+      )}
+
+      <p style={{ fontSize: 13, color: '#666', marginTop: 12 }}>
+        Based on Strava's improved GAP model: <a href="https://medium.com/strava-engineering/an-improved-gap-model-8b07ae8886c3" 
+        target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>Strava Engineering</a>
+      </p>
+    </>
+  )}
+  
+  {!getInsights() && (
+    <p>Insufficient data to generate insights. More runs with varied gradients are needed.</p>
+  )}
+</div>
         </div>
       </div>
     </div>
   );
+
+  
 };
 
 export { GradientPaceChart, GradeAdjustmentChart };

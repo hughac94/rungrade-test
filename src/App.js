@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
-import /* PaceByGradientDetailChart, */ { GradientPaceChart, GradeAdjustmentChart} from './PaceChart';
+import { GradientPaceChart, GradeAdjustmentChart } from './PaceChart';
 import StatToggle from './StatToggle';
+import FilterControls from './FilterControls'; // Import new component
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
@@ -20,7 +21,24 @@ function App() {
   const [batchProgress, setBatchProgress] = useState({ percent: 0, current: 0, total: 0, currentFile: '', filesProcessed: 0 });
   const [batchResults, setBatchResults] = useState([]); // For live results
   const [batchErrors, setBatchErrors] = useState([]);   // For live errors
- 
+
+  // Add new state for filters
+  const [filterSettings, setFilterSettings] = useState({
+    removeUnreliableBins: true, // Default to true - remove bad data
+    enableHeartRateFilter: false,
+    heartRateFilter: {
+      minHR: null,
+      maxHR: null
+    }
+  });
+  
+  // State to track if files have HR data
+  const [hasHeartRateData, setHasHeartRateData] = useState(false);
+  
+  // Add state for filtered results
+  const [filteredResults, setFilteredResults] = useState(null);
+  
+  
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -178,16 +196,35 @@ const uploadAndAnalyzeBatch = async () => {
     setAnalyzingPatterns(true);
     
     try {
+      // Check if any filters are active
+      const useFilters = filterSettings.removeUnreliableBins || 
+        (filterSettings.enableHeartRateFilter && 
+        (filterSettings.heartRateFilter.minHR !== null || filterSettings.heartRateFilter.maxHR !== null));
       
+      // Choose endpoint based on whether filters are active
+      const endpoint = useFilters ? '/api/analyze-with-filters' : '/api/advanced-analysis';
       
-      const response = await fetch(`${BACKEND_URL}/api/advanced-analysis`, {
+      // Prepare request body with filters if needed
+      const requestBody = {
+        results: results.results
+      };
+      
+      if (useFilters) {
+        requestBody.heartRateFilter = filterSettings.enableHeartRateFilter ? filterSettings.heartRateFilter : null;
+        requestBody.removeUnreliableBins = filterSettings.removeUnreliableBins;
+        requestBody.filterOptions = {
+          maxGradient: 40,
+          minSpeed: 0.2,
+          maxSpeed: 10
+        };
+      }
+      
+      const response = await fetch(`${BACKEND_URL}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          results: results.results // Send existing results data
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -197,19 +234,18 @@ const uploadAndAnalyzeBatch = async () => {
       const data = await response.json();
       
       if (data.success) {
+        // Set filtered results if filters were applied, otherwise clear them
+        if (useFilters) {
+          setFilteredResults(data);
+        } else {
+          setFilteredResults(null);
+        }
+        
         setAdvancedAnalysis(data.analyses);
         console.log('Advanced analysis complete:', data.analyses);
       } else {
         throw new Error(data.error || 'Analysis failed');
       }
-      
-      if (data.success) {
-  
-  setAdvancedAnalysis(data.analyses);
-} else {
-  throw new Error(data.error || 'Analysis failed');
-}
-
 
     } catch (err) {
       console.error('Advanced analysis error:', err);
@@ -232,6 +268,16 @@ const uploadAndAnalyzeBatch = async () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Check for HR data after results are available
+  useEffect(() => {
+    if (results && results.results) {
+      const hasHR = results.results.some(result => 
+        result.bins && result.bins.some(bin => bin.avgHeartRate !== null)
+      );
+      setHasHeartRateData(hasHR);
+    }
+  }, [results]);
+  
   return (
     <div className="App">
       <header className="App-header">
@@ -295,7 +341,7 @@ const uploadAndAnalyzeBatch = async () => {
               `⏳ Processing Batch ${batchProgress.current}/${batchProgress.total}...` : 
               '⏳ Analyzing...'
             ) : (
-              batchMode ? '🚀 Upload & Analyze (Batch)' : '🚀 Upload & Analyze'
+              batchMode ? '🚀 Upload To Processor (Batch)' : '🚀 Upload To Processor'
             )}
           </button>
 
@@ -404,6 +450,31 @@ const uploadAndAnalyzeBatch = async () => {
               })()}
             </div>
 
+            {/* Filter Controls */}
+            <FilterControls
+              filterSettings={filterSettings}
+              setFilterSettings={setFilterSettings}
+              hasHeartRateData={hasHeartRateData}
+              // Remove onApplyFilters prop
+            />
+            
+            {/* Show filter summary if filtered results exist */}
+            {filteredResults && (
+              <div className="filter-summary">
+                <p>
+                  <strong>Filters applied:</strong> 
+                  {filterSettings.removeUnreliableBins && ' Removed unreliable bins'}
+                  {filterSettings.enableHeartRateFilter && 
+                    ` • Heart Rate ${filterSettings.heartRateFilter.minHR || 'min'}-${filterSettings.heartRateFilter.maxHR || 'max'} bpm`
+                  }
+                </p>
+                <p>
+                  <strong>{filteredResults.summary.totalFilteredBins}</strong> bins analyzed 
+                  ({filteredResults.summary.totalOriginalBins - filteredResults.summary.totalFilteredBins} bins filtered out)
+                </p>
+              </div>
+            )}
+
             {/* Advanced Analysis Button */}
             <div className="analysis-actions">
               <button
@@ -411,10 +482,16 @@ const uploadAndAnalyzeBatch = async () => {
                 disabled={analyzingPatterns}
                 className={`analysis-btn ${analyzingPatterns ? 'analyzing' : ''}`}
               >
-                {analyzingPatterns ? '🔬 Analyzing Patterns...' : '📈 Analyze Patterns'}
+                {analyzingPatterns ? '🔬 Analyzing Patterns...' : (
+                  (filterSettings.removeUnreliableBins || filterSettings.enableHeartRateFilter) ? 
+                  '📈 Analyze Patterns (with Filters)' : 
+                  '📈 Analyze Patterns'
+                )}
               </button>
               <p className="analysis-note">
-                Analyze pace vs gradient, heart rate zones, and performance patterns across all {results.summary.totalBins} bins
+                Analyze pace vs gradient, heart rate zones, and performance patterns
+                {(filterSettings.removeUnreliableBins || filterSettings.enableHeartRateFilter) && 
+                  ' with selected filters applied'}
               </p>
             </div>
 
