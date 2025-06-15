@@ -644,3 +644,126 @@
   border-radius: 4px;
 }
 
+
+.file-list-container {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.file-list-header {
+  display: flex;
+  background-color: #f9fafb;
+  padding: 8px 12px;
+  font-weight: 500;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+}
+
+.file-list-scrollable {
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.file-list-item {
+  display: flex;
+  padding: 6px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+}
+
+.file-list-item:last-child {
+  border-bottom: none;
+}
+
+.file-list-item.error {
+  background-color: #fff5f5;
+}
+
+.status-column {
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.filename-column {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 10px;
+}
+
+.data-column {
+  width: 120px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status.success {
+  color: #10b981;
+}
+
+.status.fail {
+  color: #ef4444;
+}
+
+.hr-badge {
+  background-color: #fee2e2;
+  color: #ef4444;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.distance-badge {
+  background-color: #e0f2fe;
+  color: #3b82f6;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 11px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Add to your CSS */
+.spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

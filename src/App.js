@@ -281,14 +281,13 @@ const uploadAndAnalyzeBatch = async () => {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🏃‍♂️ GPX & FIT Analysis Test</h1>
-        <p>Upload GPX or FIT files to test backend processing</p>
+        <h1>🏃‍♂️ PERSONAL GRADE RUNNING ANALYSER</h1>
+        <p>📁 Upload multiple GPX or FIT files, set filters, and analyse...   </p>
       </header>
 
       <main className="App-main">
         {/* Upload Section */}
         <div className="upload-section">
-          <h2>📁 Upload GPX or FIT Files</h2>
           
           <input
             type="file"
@@ -331,19 +330,25 @@ const uploadAndAnalyzeBatch = async () => {
   </label>
 </div>
 
-          <button
-            onClick={batchMode ? uploadAndAnalyzeBatch : uploadAndAnalyze}
-            disabled={uploading || files.length === 0}
-            className={`upload-btn ${uploading ? 'uploading' : ''}`}
-          >
-            {uploading ? (
-              batchMode ? 
-              `⏳ Processing Batch ${batchProgress.current}/${batchProgress.total}...` : 
-              '⏳ Analyzing...'
-            ) : (
-              batchMode ? '🚀 Upload To Processor (Batch)' : '🚀 Upload To Processor'
-            )}
-          </button>
+<button
+  onClick={batchMode ? uploadAndAnalyzeBatch : uploadAndAnalyze}
+  disabled={uploading || files.length === 0}
+  className={`upload-btn ${uploading ? 'uploading' : ''}`}
+>
+  {uploading ? (
+    <span className="spinner-container">
+      <span className="spinner"></span>
+      {batchMode ? 
+        `Processing File ${batchProgress.current}/${batchProgress.total}...` : 
+        'Analyzing...'}
+    </span>
+  ) : (
+    <>
+      {batchMode ? '🚀 Upload To Processor (Batch)' : '🚀 Upload To Processor'}
+      {files.length > 0 && <span className="file-count-badge">{files.length}</span>}
+    </>
+  )}
+</button>
 
           {/* Batch Progress */}
 {uploading && batchMode && (
@@ -357,18 +362,40 @@ const uploadAndAnalyzeBatch = async () => {
     </p>
     <div style={{ marginTop: 10 }}>
       <b>Processed Files:</b>
-      <ul style={{ maxHeight: 120, overflowY: 'auto', fontSize: 13, margin: 0, paddingLeft: 18 }}>
-        {batchResults.map((r, i) => (
-          <li key={i} style={{ color: r.hasHeartRateData ? '#007bff' : '#333' }}>
-            ✅ {r.filename}
-          </li>
-        ))}
-        {batchErrors.map((e, i) => (
-          <li key={`err-${i}`} style={{ color: 'red' }}>
-            ❌ {e.filename}: {e.error}
-          </li>
-        ))}
-      </ul>
+      {(batchResults.length > 0 || batchErrors.length > 0) && (
+        <div className="file-list-container">
+          <div className="file-list-header">
+            <div className="status-column">Status</div>
+            <div className="filename-column">Filename</div>
+            <div className="data-column">Data</div>
+          </div>
+          <div className="file-list-scrollable">
+            {batchResults.map((r, i) => (
+              <div key={i} className="file-list-item">
+                <div className="status-column">
+                  <span className="status success">✅</span>
+                </div>
+                <div className="filename-column">{r.filename}</div>
+                <div className="data-column">
+                  {r.hasHeartRateData && <span className="hr-badge">❤️</span>}
+                  <span className="distance-badge">{r.distance ? `${r.distance.toFixed(1)}km` : "N/A"}</span>
+                </div>
+              </div>
+            ))}
+            {batchErrors.map((e, i) => (
+              <div key={`err-${i}`} className="file-list-item error">
+                <div className="status-column">
+                  <span className="status fail">❌</span>
+                </div>
+                <div className="filename-column">{e.filename}</div>
+                <div className="data-column">
+                  <span className="error-message">{e.error}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   </div>
 )}

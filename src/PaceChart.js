@@ -241,7 +241,7 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
   
   // Calculate deviations from literature model
   const significantDeviations = bucketedData
-    .filter(b => Math.abs(b.adjustmentFactor - b.literatureAdj) > 0.1)
+    .filter(b => Math.abs(b.adjustmentFactor - b.literatureAdj) > 0.05)
     .map(b => ({
       gradient: b.label,
       midpoint: b.midpoint,
@@ -262,12 +262,17 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
   // Find the biggest area for improvement (where you're most worse than average)
   let biggestImprovement = null;
   if (significantDeviations.length > 0) {
-    // Look for positive deviations (where you're slower than average)
+    // First try to find where you're slower than average
     const improvementAreas = significantDeviations.filter(d => d.diff > 0)
       .sort((a, b) => b.diff - a.diff);
     
     if (improvementAreas.length > 0) {
       biggestImprovement = improvementAreas[0];
+    } else {
+      // If no worse-than-average areas, use your least-good gradient
+      // (the one closest to average or least better than average)
+      biggestImprovement = significantDeviations
+        .sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff))[0];
     }
   }
   
@@ -765,24 +770,36 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
               with {Math.abs(getInsights().maxDownhillDeviation.percentDiff)}% relatively better adjustment than average runners.
             </span>
           )}
-        </div>
+        </div>  
       )}
       
-      {/* Biggest improvement opportunity - ADD THIS BLOCK HERE */}
-      {getInsights() && getInsights().biggestImprovement && (
+      {/* Biggest improvement opportunity -  */}
+      {getInsights().biggestImprovement && (
         <div style={{ 
           marginTop: 16, 
           marginBottom: 8,
           padding: '12px 16px',
-          backgroundColor: '#fef2f2',
-          borderLeft: '4px solid #ef4444',
+          backgroundColor: getInsights().biggestImprovement.diff > 0 ? '#fef2f2' : '#f0fdf4',
+          borderLeft: `4px solid ${getInsights().biggestImprovement.diff > 0 ? '#ef4444' : '#10b981'}`,
           borderRadius: '4px'
         }}>
-          <strong style={{ color: '#b91c1c' }}>📈 Biggest improvement opportunity:</strong>{' '}
-          <span>
-            Your {getInsights().biggestImprovement.gradient} gradient performance is {getInsights().biggestImprovement.percentDiff}% relativley slower 
-            than the modelled average runner. Focused training on this gradient could yield your biggest gains.
-          </span>
+          {getInsights().biggestImprovement.diff > 0 ? (
+            <>
+              <strong style={{ color: '#b91c1c' }}>📈 Biggest improvement opportunity:</strong>{' '}
+              <span>
+                Your {getInsights().biggestImprovement.gradient} gradient performance is {getInsights().biggestImprovement.percentDiff}% relatively slower 
+                than the modelled average runner. Focused training on this gradient could yield your biggest gains.
+              </span>
+            </>
+          ) : (
+            <>
+              <strong style={{ color: '#10b981' }}>📈 Focus area:</strong>{' '}
+              <span>
+                While you perform well on all gradients, your {getInsights().biggestImprovement.gradient} gradient 
+                has the least advantage compared to average ({Math.abs(getInsights().biggestImprovement.percentDiff)}% difference).
+              </span>
+            </>
+          )}
         </div>
       )}
 
