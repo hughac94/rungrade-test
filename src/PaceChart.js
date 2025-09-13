@@ -736,7 +736,7 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
       
       <p style={{ marginBottom: 8 }}>
         <strong>What to look for:</strong> Where your points differ significantly from the blue line. 
-        A difference of 0.1x (10%) or more indicates a meaningful deviation from the average runner.
+        A difference of 0.1x (10%) or more could indicate a meaningful deviation from the average runner.
       </p>
       
       {getInsights().maxUphillDeviation && (

@@ -192,23 +192,21 @@ const uploadAndAnalyzeBatch = async () => {
 
   const runAdvancedAnalysis = async () => {
     if (!results || !results.results) return;
-    
+
     setAnalyzingPatterns(true);
-    
+
     try {
-      // Check if any filters are active
-      const useFilters = filterSettings.removeUnreliableBins || 
-        (filterSettings.enableHeartRateFilter && 
-        (filterSettings.heartRateFilter.minHR !== null || filterSettings.heartRateFilter.maxHR !== null));
-      
-      // Choose endpoint based on whether filters are active
-      const endpoint = useFilters ? '/api/analyze-with-filters' : '/api/advanced-analysis';
-      
-      // Prepare request body with filters if needed
+      const useFilters = filterSettings.removeUnreliableBins ||
+        (filterSettings.enableHeartRateFilter &&
+          (filterSettings.heartRateFilter.minHR !== null || filterSettings.heartRateFilter.maxHR !== null));
+
+      // Use new endpoint if filters are enabled
+      const endpoint = useFilters ? '/api/analyze-with-filters-json' : '/api/advanced-analysis';
+
       const requestBody = {
         results: results.results
       };
-      
+
       if (useFilters) {
         requestBody.heartRateFilter = filterSettings.enableHeartRateFilter ? filterSettings.heartRateFilter : null;
         requestBody.removeUnreliableBins = filterSettings.removeUnreliableBins;
@@ -218,7 +216,7 @@ const uploadAndAnalyzeBatch = async () => {
           maxSpeed: 10
         };
       }
-      
+
       const response = await fetch(`${BACKEND_URL}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -232,15 +230,13 @@ const uploadAndAnalyzeBatch = async () => {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
-        // Set filtered results if filters were applied, otherwise clear them
         if (useFilters) {
           setFilteredResults(data);
         } else {
           setFilteredResults(null);
         }
-        
         setAdvancedAnalysis(data.analyses);
         console.log('Advanced analysis complete:', data.analyses);
       } else {
@@ -499,6 +495,20 @@ const uploadAndAnalyzeBatch = async () => {
                   <strong>{filteredResults.summary.totalFilteredBins}</strong> bins analyzed 
                   ({filteredResults.summary.totalOriginalBins - filteredResults.summary.totalFilteredBins} bins filtered out)
                 </p>
+                {/* Breakdown of exclusion reasons */}
+                {filteredResults.summary.exclusionCounts && (
+                  <div className="exclusion-breakdown">
+                    <strong>Bins excluded by reason:</strong>
+                    <ul>
+                      <li>Speed: {filteredResults.summary.exclusionCounts.speed}</li>
+                      <li>Gradient: {filteredResults.summary.exclusionCounts.gradient}</li>
+                      <li>Time: {filteredResults.summary.exclusionCounts.timeInSeconds}</li>
+                      <li>Distance: {filteredResults.summary.exclusionCounts.distance}</li>
+                      <li>Heart Rate: {filteredResults.summary.exclusionCounts.heartRate}</li>
+                      <li>Total: {filteredResults.summary.exclusionCounts.total}</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 
@@ -602,5 +612,7 @@ const uploadAndAnalyzeBatch = async () => {
     </div>
   );
 }
+
+
 
 export default App;
