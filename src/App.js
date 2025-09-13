@@ -277,7 +277,7 @@ const uploadAndAnalyzeBatch = async () => {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>🏃‍♂️ PERSONAL GRADE RUNNING ANALYSER</h1>
+        <h1>🏃‍♂️ PERSONAL GRADE ADJUSTED RUNNING ANALYSER </h1>
         <p>📁 Upload multiple GPX or FIT files, set filters, and analyse...   </p>
       </header>
 
@@ -341,7 +341,9 @@ const uploadAndAnalyzeBatch = async () => {
   ) : (
     <>
       {batchMode ? '🚀 Upload To Processor (Batch)' : '🚀 Upload To Processor'}
-      {files.length > 0 && <span className="file-count-badge">{files.length}</span>}
+      {files.length > 0 && (
+        <span className="file-count-badge">{files.length}</span>
+        )}
     </>
   )}
 </button>
@@ -478,36 +480,32 @@ const uploadAndAnalyzeBatch = async () => {
               filterSettings={filterSettings}
               setFilterSettings={setFilterSettings}
               hasHeartRateData={hasHeartRateData}
-              // Remove onApplyFilters prop
             />
-            
+
             {/* Show filter summary if filtered results exist */}
             {filteredResults && (
               <div className="filter-summary">
                 <p>
-                  <strong>Filters applied:</strong> 
+                  <strong>Filters applied:</strong>
                   {filterSettings.removeUnreliableBins && ' Removed unreliable bins'}
-                  {filterSettings.enableHeartRateFilter && 
+                  {filterSettings.enableHeartRateFilter &&
                     ` • Heart Rate ${filterSettings.heartRateFilter.minHR || 'min'}-${filterSettings.heartRateFilter.maxHR || 'max'} bpm`
                   }
                 </p>
                 <p>
-                  <strong>{filteredResults.summary.totalFilteredBins}</strong> bins analyzed 
+                  <strong>{filteredResults.summary.totalFilteredBins}</strong> bins analyzed
                   ({filteredResults.summary.totalOriginalBins - filteredResults.summary.totalFilteredBins} bins filtered out)
                 </p>
-                {/* Breakdown of exclusion reasons */}
+                {/* Inline exclusion breakdown */}
                 {filteredResults.summary.exclusionCounts && (
-                  <div className="exclusion-breakdown">
-                    <strong>Bins excluded by reason:</strong>
-                    <ul>
-                      <li>Speed: {filteredResults.summary.exclusionCounts.speed}</li>
-                      <li>Gradient: {filteredResults.summary.exclusionCounts.gradient}</li>
-                      <li>Time: {filteredResults.summary.exclusionCounts.timeInSeconds}</li>
-                      <li>Distance: {filteredResults.summary.exclusionCounts.distance}</li>
-                      <li>Heart Rate: {filteredResults.summary.exclusionCounts.heartRate}</li>
-                      <li>Total: {filteredResults.summary.exclusionCounts.total}</li>
-                    </ul>
-                  </div>
+                  <p style={{ margin: '8px 0', color: '#666' }}>
+                    Bins removed:
+                    Speed ({filteredResults.summary.exclusionCounts.speed}),
+                    Gradient ({filteredResults.summary.exclusionCounts.gradient}),
+                    Time ({filteredResults.summary.exclusionCounts.timeInSeconds}),
+                    Distance ({filteredResults.summary.exclusionCounts.distance}),
+                    Heart Rate ({filteredResults.summary.exclusionCounts.heartRate})
+                  </p>
                 )}
               </div>
             )}

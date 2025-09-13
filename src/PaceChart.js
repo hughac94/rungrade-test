@@ -165,9 +165,14 @@ const getBarColor = (bucket) => {
                 <div style={{
                   fontSize: '9px',
                   color: '#666',
-                  marginTop: '2px'
+                  marginTop: '2px',
+                  lineHeight: 1.3,
+                  textAlign: 'center'
                 }}>
-                  {bucket.binCount} bins
+                  {bucket.binCount} bins<br />
+                 {bucket.totalTime
+  ? `${Math.round(bucket.totalTime / 60)} mins`
+  : '0 mins'}
                 </div>
               </div>
             );
