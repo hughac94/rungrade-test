@@ -47,14 +47,14 @@ const GradientPaceChart = ({ gradientData, statType = 'mean' }) => {
   const minPace = Math.min(...paceValues);
   const paceRange = maxPace - minPace;
 
-const getBarColor = (bucket) => {
-  // Special case for <=-25% label
-  if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) return '#10b981'; // Green
-  const gradient = parseFloat(bucket.label.split(' ')[0]);
-  if (gradient < 0) return '#10b981'; // Green for downhill
-  if (gradient <= 5) return '#3b82f6'; // Blue for flat to moderate
-  return '#ef4444'; // Red for steep uphill
-};
+  const getBarColor = (bucket) => {
+    // Special case for <=-25% label
+    if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) return '#10b981'; // Green
+    const gradient = parseFloat(bucket.label.split(' ')[0]);
+    if (gradient < 0) return '#10b981'; // Green for downhill
+    if (gradient <= 5) return '#3b82f6'; // Blue for flat to moderate
+    return '#ef4444'; // Red for steep uphill
+  };
 
   return (
     <div ref={chartRef} style={{ 
@@ -83,20 +83,9 @@ const getBarColor = (bucket) => {
           marginTop: 0,
           color: '#333'
         }}>
-          📈 Pace vs Gradient Analysis
+          📈 Average Pace by Gradient Bucket
         </h3>
-        <p style={{ 
-          textAlign: 'center', 
-          maxWidth: '800px',
-          marginBottom: 20,
-          marginLeft: 'auto',
-          marginRight: 'auto',
-          color: '#666',
-          fontSize: '14px'
-        }}>
-          How your pace changes with gradient • {gradientData.totalBinsAnalyzed} bins analyzed
-        </p>
-
+       
         {/* Chart bars */}
         <div style={{
           display: 'flex',
@@ -179,7 +168,6 @@ const getBarColor = (bucket) => {
           })}
         </div>
         
-      
         <div style={{
           display: 'flex',
           justifyContent: 'center',
@@ -236,58 +224,45 @@ const getBarColor = (bucket) => {
   );
 };
 
-const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'mean' }) => {
-  // Tooltip state
+const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'mean', redDotData = [] }) => {
+  console.log('GradeAdjustmentChart: redDotData', redDotData); // <-- Add this
   const [tooltipData, setTooltipData] = React.useState(null);
 
-  // Get insights automatically
   const getInsights = () => {
-  if (!bucketedData || bucketedData.length === 0) return null;
-  
-  // Calculate deviations from literature model
-  const significantDeviations = bucketedData
-    .filter(b => Math.abs(b.adjustmentFactor - b.literatureAdj) > 0.05)
-    .map(b => ({
-      gradient: b.label,
-      midpoint: b.midpoint,
-      personal: b.adjustmentFactor,
-      literature: b.literatureAdj,
-      diff: b.adjustmentFactor - b.literatureAdj,
-      percentDiff: ((b.adjustmentFactor - b.literatureAdj) / b.literatureAdj * 100).toFixed(1)
-    }))
-    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
-  
-  // Find largest downhill and uphill deviations
-  const uphillDeviations = significantDeviations.filter(d => d.midpoint > 0);
-  const downhillDeviations = significantDeviations.filter(d => d.midpoint < 0);
-  
-  const maxUphillDeviation = uphillDeviations.length > 0 ? uphillDeviations[0] : null;
-  const maxDownhillDeviation = downhillDeviations.length > 0 ? downhillDeviations[0] : null;
-  
-  // Find the biggest area for improvement (where you're most worse than average)
-  let biggestImprovement = null;
-  if (significantDeviations.length > 0) {
-    // First try to find where you're slower than average
-    const improvementAreas = significantDeviations.filter(d => d.diff > 0)
-      .sort((a, b) => b.diff - a.diff);
-    
-    if (improvementAreas.length > 0) {
-      biggestImprovement = improvementAreas[0];
-    } else {
-      // If no worse-than-average areas, use your least-good gradient
-      // (the one closest to average or least better than average)
-      biggestImprovement = significantDeviations
-        .sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff))[0];
+    if (!bucketedData || bucketedData.length === 0) return null;
+    const significantDeviations = bucketedData
+      .filter(b => Math.abs(b.adjustmentFactor - b.literatureAdj) > 0.05)
+      .map(b => ({
+        gradient: b.label,
+        midpoint: b.midpoint,
+        personal: b.adjustmentFactor,
+        literature: b.literatureAdj,
+        diff: b.adjustmentFactor - b.literatureAdj,
+        percentDiff: ((b.adjustmentFactor - b.literatureAdj) / b.literatureAdj * 100).toFixed(1)
+      }))
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    const uphillDeviations = significantDeviations.filter(d => d.midpoint > 0);
+    const downhillDeviations = significantDeviations.filter(d => d.midpoint < 0);
+    const maxUphillDeviation = uphillDeviations.length > 0 ? uphillDeviations[0] : null;
+    const maxDownhillDeviation = downhillDeviations.length > 0 ? downhillDeviations[0] : null;
+    let biggestImprovement = null;
+    if (significantDeviations.length > 0) {
+      const improvementAreas = significantDeviations.filter(d => d.diff > 0)
+        .sort((a, b) => b.diff - a.diff);
+      if (improvementAreas.length > 0) {
+        biggestImprovement = improvementAreas[0];
+      } else {
+        biggestImprovement = significantDeviations
+          .sort((a, b) => Math.abs(a.diff) - Math.abs(b.diff))[0];
+      }
     }
-  }
-  
-  return { 
-    significantDeviations: significantDeviations.slice(0, 3), 
-    maxUphillDeviation, 
-    maxDownhillDeviation,
-    biggestImprovement
+    return { 
+      significantDeviations: significantDeviations.slice(0, 3), 
+      maxUphillDeviation, 
+      maxDownhillDeviation,
+      biggestImprovement
+    };
   };
-};
 
   gradientPaceData.buckets.forEach((bucket, index) => {
     console.log(`Bucket ${index}:`, {
@@ -306,92 +281,73 @@ const GradeAdjustmentChart = ({ adjustmentData, gradientPaceData, statType = 'me
     return null;
   }
 
-  // Choose which values to display based on statType
-  const data = adjustmentData.adjustmentData;
-  const getPersonalAdjustment = (point) => {
-    const value = statType === 'median' ? point.personalAdjustmentMedian : point.personalAdjustment;
-    return (value != null && !isNaN(value)) ? value : 0;
-  };
-  const getPaceLabel = (point) => {
-    const label = statType === 'median' ? point.medianPaceLabel : point.paceLabel;
-    return label || 'N/A';
-  };
+  
   const getBasePace = () => {
     const value = statType === 'median' ? adjustmentData.basePaceMedian : adjustmentData.basePace;
     return (value != null && !isNaN(value)) ? value : 1;
   };
   const getBasePaceLabel = () => statType === 'median' ? adjustmentData.basePaceMedianLabel : adjustmentData.basePaceLabel;
   
-const skipLabels = [
-  '≥35', '>=35',
-  '≤-35', '<=-35'
-];
+  const skipLabels = [
+    '≥35', '>=35',
+    '≤-35', '<=-35'
+  ];
 
-const bucketedData = [];
-if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
-  gradientPaceData.buckets.forEach(bucket => {
-    // Remove spaces AND percent signs for robust matching
-    const cleanLabel = bucket.label.replace(/\s/g, '').replace(/%/g, '');
-    if (skipLabels.some(skip => cleanLabel.startsWith(skip))) {
-      // Debug: log when skipping
-      console.log('Skipping bucket:', bucket.label, 'as cleanLabel:', cleanLabel);
-      return;
-    }
-    if (bucket.binCount > 0) {
-      const bucketPace = statType === 'median' ? bucket.medianPace : bucket.avgPace;
-      if (bucketPace) {
-        let midpoint;
-        if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) {
-          midpoint = -27.5;
-        } else if (bucket.label.includes('≥25') || bucket.label.includes('>=25')) {
-          midpoint = 27.5;
-        } else {
-          midpoint = (bucket.min + bucket.max) / 2;
-        }
-        if (
-          typeof midpoint === 'number' &&
-          !isNaN(midpoint) &&
-          midpoint > -31 &&
-          midpoint < 31
-        ) {
-          const adjustmentFactor = bucketPace / getBasePace();
-          const literatureAdj = calculateGradeAdjustment(midpoint);
-          bucketedData.push({
-            midpoint,
-            adjustmentFactor,
-            literatureAdj,
-            label: bucket.label,
-            binCount: bucket.binCount,
-            avgPace: bucket.avgPace
-          });
+  const bucketedData = [];
+  if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
+    gradientPaceData.buckets.forEach(bucket => {
+      const cleanLabel = bucket.label.replace(/\s/g, '').replace(/%/g, '');
+      if (skipLabels.some(skip => cleanLabel.startsWith(skip))) {
+        console.log('Skipping bucket:', bucket.label, 'as cleanLabel:', cleanLabel);
+        return;
+      }
+      if (bucket.binCount > 0) {
+        const bucketPace = statType === 'median' ? bucket.medianPace : bucket.avgPace;
+        if (bucketPace) {
+          let midpoint;
+          if (bucket.label.includes('≤-25') || bucket.label.includes('<=-25')) {
+            midpoint = -27.5;
+          } else if (bucket.label.includes('≥25') || bucket.label.includes('>=25')) {
+            midpoint = 27.5;
+          } else {
+            midpoint = (bucket.min + bucket.max) / 2;
+          }
+          if (
+            typeof midpoint === 'number' &&
+            !isNaN(midpoint) &&
+            midpoint > -31 &&
+            midpoint < 31
+          ) {
+            const adjustmentFactor = bucketPace / getBasePace();
+            const literatureAdj = calculateGradeAdjustment(midpoint);
+            bucketedData.push({
+              midpoint,
+              adjustmentFactor,
+              literatureAdj,
+              label: bucket.label,
+              binCount: bucket.binCount,
+              avgPace: bucket.avgPace
+            });
+          }
         }
       }
-    }
-  });
-}
+    });
+  }
 
-
-  
   // Chart dimensions
-  const chartHeight = 400; // Reduced to make room for title/subtitle
+  const chartHeight = 400;
   const width = 900;
-  const chartPadding = 30; // Increased padding for better spacing
+  const chartPadding = 30;
   const chartWidth = width - 2 * chartPadding;
 
-  // Calculate what the polynomial actually reaches across your gradient range
   const polynomialValues = [];
   for (let x = -30; x <= 30; x += 2) {
     polynomialValues.push(calculateGradeAdjustment(x));
   }
 
- 
-  // Calculate scale
   const yMin = 0.4;
   const yMax = 3.7;
 
-  console.log(`Y-axis scale: ${yMin.toFixed(2)} to ${yMax.toFixed(2)}`);
-
-  // Scale for x-axis (gradient)
   const gradientMin = -30;
   const gradientMax = 30;
   const gradientRange = gradientMax - gradientMin;
@@ -400,12 +356,10 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
     ((gradientValue - gradientMin) / gradientRange) * chartWidth + chartPadding;
 
   const getY = adjustmentValue =>
-    chartHeight - ((adjustmentValue - yMin) / (yMax - yMin)) * (chartHeight - chartPadding); // Fixed positioning
+    chartHeight - ((adjustmentValue - yMin) / (yMax - yMin)) * (chartHeight - chartPadding);
 
-  // Formatter for y-axis labels
   const formatAdjustment = value => value.toFixed(2);
 
-  // Generate points for literature formula line
   const literatureLine = [];
   for (let g = gradientMin; g <= gradientMax; g++) {
     const x = g;
@@ -414,23 +368,22 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
   }
   const literatureLinePath = `M${literatureLine.map(p => `${p.x},${p.y}`).join(' L')}`;
 
-  // Generate y-axis grid lines
   const adjustmentStep = 0.2;
   const yGridLines = [];
   for (
-      let adj = Math.floor(yMin / adjustmentStep) * adjustmentStep;
+    let adj = Math.floor(yMin / adjustmentStep) * adjustmentStep;
     adj <= yMax;
     adj += adjustmentStep
   ) {
     yGridLines.push(adj);
   }
 
-  // Generate x-axis grid lines (every 5%)
   const xGridLines = [];
   for (let g = -30; g <= 30; g += 5) {
     xGridLines.push(g);
   }
-  
+
+  // --- RETURN STATEMENT ---
   return (
     <div style={{ 
       marginTop: 16,
@@ -467,11 +420,29 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
           color: '#666',
           fontSize: '14px'
         }}>
-          How your pace changes relative to flat ground (1.0 = same as flat) • 
-          Base pace ({statType}) at 0%: {getBasePaceLabel()} min/km •  
-          {data.reduce((sum, d) => sum + d.binCount, 0)} bins analyzed
+          Pace change multiplier relative to flat ground (x1.0 at flat/0% - {getBasePaceLabel()} min/km) ({statType}) 
         </p>
-
+        {adjustmentData.basePaceMethod && (
+  <div style={{
+    textAlign: 'center',
+    color: '#888',
+    fontSize: '13px',
+    marginBottom: '10px'
+  }}>
+    <span>
+      <strong>Base pace method:</strong> {
+        adjustmentData.basePaceMethod === 'exact-zero' ? 'Exact 0% gradient bin'
+        : adjustmentData.basePaceMethod === 'near-zero' ? 'Near-zero gradient bin (-2% to +2%)'
+        : 'Average of all bins'
+      }<br />
+      <strong>Bucket:</strong> {adjustmentData.basePaceBinStats.label} &nbsp;|&nbsp;
+      <strong>Bins:</strong> {adjustmentData.basePaceBinStats.binCount} &nbsp;|&nbsp;
+      <strong>Total time:</strong> {adjustmentData.basePaceBinStats.totalTime
+        ? `${Math.round(adjustmentData.basePaceBinStats.totalTime / 60)} mins`
+        : 'N/A'}
+    </span>
+  </div>
+)}
         {/* Chart SVG */}
         <svg width="100%" height={chartHeight + 25} style={{ 
           overflow: 'visible',
@@ -547,7 +518,6 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
             strokeDasharray="4 2"
           />
 
-
           {/* Y-axis */}
           <line
             x1={chartPadding}
@@ -562,40 +532,32 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
           <path d={literatureLinePath} fill="none" stroke="#3b82f6" strokeWidth={2} />
 
           {/* Personal data points */}
-          {data
-            .filter(point => {
-              // Remove spaces and percent signs for robust matching
-              const cleanLabel = (point.gradient + '').replace(/\s/g, '').replace(/%/g, '');
-              // Exclude points with skip labels
-              if (skipLabels.some(skip => cleanLabel.startsWith(skip))) return false;
-              // Also filter by value
-              return point.gradientValue >= -30 && point.gradientValue <= 30;
-            })
-            .map((point, idx) => (
-              <circle
-                key={idx}
-                cx={getX(point.gradientValue)}
-                cy={getY(getPersonalAdjustment(point))}
-                r={4}
-                fill="#ef4444"
-                fillOpacity={0.4}
-                stroke="#fff"
-                strokeWidth={1}
-                onMouseEnter={() => {
-                  setTooltipData({
-                    x: getX(point.gradientValue),
-                    y: getY(getPersonalAdjustment(point)),
-                    gradient: point.gradient,
-                    personalAdj: getPersonalAdjustment(point) != null ? getPersonalAdjustment(point).toFixed(2) : 'N/A',
-                    literatureAdj: calculateGradeAdjustment(point.gradientValue).toFixed(2),
-                    binCount: point.binCount,
-                    paceLabel: getPaceLabel(point)
-                  });
-                }}
-                onMouseLeave={() => setTooltipData(null)}
-                style={{cursor: 'pointer'}}
-              />
-            ))}
+          {redDotData
+  .filter(point => point.gradient >= -30 && point.gradient <= 30)
+  .map((point, idx) => (
+    <circle
+      key={idx}
+      cx={getX(point.gradient)}
+      cy={getY(point.adjustment)}
+      r={4}
+      fill="#ef4444"
+      fillOpacity={0.4}
+      stroke="#fff"
+      strokeWidth={1}
+      onMouseEnter={() => {
+        setTooltipData({
+          x: getX(point.gradient),
+          y: getY(point.adjustment),
+          gradient: `${point.gradient}%`,
+          personalAdj: point.adjustment.toFixed(2),
+          binCount: point.binCount,
+          paceLabel: point.paceLabel
+        });
+      }}
+      onMouseLeave={() => setTooltipData(null)}
+      style={{cursor: 'pointer'}}
+    />
+  ))}
 
           {/* Bucket/category points */}
           {bucketedData
@@ -621,14 +583,13 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
                       y: getY(bucket.adjustmentFactor),
                       gradient: bucket.label,
                       personalAdj: bucket.adjustmentFactor != null ? bucket.adjustmentFactor.toFixed(2) : 'N/A',
-                      literatureAdj: calculateGradeAdjustment(bucket.midpoint).toFixed(2), // FIXED: use polynomial at this x
+                      literatureAdj: calculateGradeAdjustment(bucket.midpoint).toFixed(2),
                       binCount: bucket.binCount
                     });
                   }}
                   onMouseLeave={() => setTooltipData(null)}
                   style={{cursor: 'pointer'}}
                 />
-                {/* Connecting line to literature value */}
                 <line
                   x1={getX(bucket.midpoint)}
                   y1={getY(bucket.adjustmentFactor)}
@@ -703,128 +664,99 @@ if (gradientPaceData && gradientPaceData.buckets && getBasePace()) {
           </g>
         </svg>
 
-        {/* Bottom explanation inside white box */}
+        {/* Interpretation Section */}
         <div style={{ 
-          marginTop: 8, 
-          fontSize: 12, 
-          color: '#666', 
-          textAlign: 'center',
+          marginTop: 20, 
+          fontSize: 14, 
+          color: '#333', 
           maxWidth: '800px',
           marginLeft: 'auto',
           marginRight: 'auto',
           paddingTop: '16px',
-          borderTop: '1px solid #e5e7eb'
+          borderTop: '1px solid #e5e7eb',
+          textAlign: 'left'
         }}>
-          <span>
-            Adjustment factor = pace at gradient / pace at 0% gradient • Higher = slower pace
-          </span>
-          {/* Interpretation Section */}
-<div style={{ 
-  marginTop: 20, 
-  fontSize: 14, 
-  color: '#333', 
-  maxWidth: '800px',
-  marginLeft: 'auto',
-  marginRight: 'auto',
-  paddingTop: '16px',
-  borderTop: '1px solid #e5e7eb',
-  textAlign: 'left'
-}}>
-  <h4 style={{ marginBottom: 10, fontSize: 16 }}>📋 Interpretation</h4>
-  
-  {getInsights() && (
-    <>
-      <p style={{ marginBottom: 8 }}>
-        This chart compares <strong>your personal pace adjustments</strong> (red circles and blue squares) with the 
-        <strong> Strava population average</strong> (blue line) based on the model from Strava's research.
-      </p>
-      
-      <p style={{ marginBottom: 8 }}>
-        <strong>What to look for:</strong> Where your points differ significantly from the blue line. 
-        A difference of 0.1x (10%) or more could indicate a meaningful deviation from the average runner.
-      </p>
-      
-      {getInsights().maxUphillDeviation && (
-        <div style={{ marginBottom: 8 }}>
-          <strong>Uphill performance:</strong>{' '}
-          {getInsights().maxUphillDeviation.diff > 0 ? (
-            <span>
-              You slow down <span style={{ color: '#ef4444' }}>more than average</span> on {getInsights().maxUphillDeviation.gradient} gradients 
-              ({getInsights().maxUphillDeviation.percentDiff}% difference). This could be an area to focus training.
-            </span>
-          ) : (
-            <span>
-              You handle {getInsights().maxUphillDeviation.gradient} gradients <span style={{ color: '#10b981' }}>better than average </span> 
-              ({Math.abs(getInsights().maxUphillDeviation.percentDiff)}% difference). This is a relative strength!
-            </span>
-          )}
-        </div>
-      )}
-      
-      {getInsights().maxDownhillDeviation && (
-        <div style={{ marginBottom: 8 }}>
-          <strong>Downhill performance:</strong>{' '}
-          {getInsights().maxDownhillDeviation.diff > 0 ? (
-            <span>
-              On {getInsights().maxDownhillDeviation.gradient} gradients, you're <span style={{ color: '#ef4444' }}>not taking full advantage</span> of 
-              the descent ({getInsights().maxDownhillDeviation.percentDiff}% difference from average).
-            </span>
-          ) : (
-            <span>
-              You're <span style={{ color: '#10b981' }}>particularly good</span> at {getInsights().maxDownhillDeviation.gradient} descents, 
-              with {Math.abs(getInsights().maxDownhillDeviation.percentDiff)}% relatively better adjustment than average runners.
-            </span>
-          )}
-        </div>  
-      )}
-      
-      {/* Biggest improvement opportunity -  */}
-      {getInsights().biggestImprovement && (
-        <div style={{ 
-          marginTop: 16, 
-          marginBottom: 8,
-          padding: '12px 16px',
-          backgroundColor: getInsights().biggestImprovement.diff > 0 ? '#fef2f2' : '#f0fdf4',
-          borderLeft: `4px solid ${getInsights().biggestImprovement.diff > 0 ? '#ef4444' : '#10b981'}`,
-          borderRadius: '4px'
-        }}>
-          {getInsights().biggestImprovement.diff > 0 ? (
+          <h4 style={{ marginBottom: 10, fontSize: 16 }}>📋 Interpretation</h4>
+          {getInsights() ? (
             <>
-              <strong style={{ color: '#b91c1c' }}>📈 Biggest improvement opportunity:</strong>{' '}
-              <span>
-                Your {getInsights().biggestImprovement.gradient} gradient performance is {getInsights().biggestImprovement.percentDiff}% relatively slower 
-                than the modelled average runner. Focused training on this gradient could yield your biggest gains.
-              </span>
+              <p style={{ marginBottom: 16 }}>
+                This chart compares your personal pace adjustments (<span style={{ color: '#ef4444', fontWeight: 'bold' }}>red circles</span> and <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>blue squares</span>) with the 
+                <strong> Strava population average</strong> (<span style={{ color: '#3b82f6', fontWeight: 'bold' }}>blue line</span>) based on the model from Strava's research.  Higher values mean relatively slower compared to flat ground.
+              </p>
+              <p style={{ marginBottom: 16 }}>
+                
+                Compare your personal adjustment to the literature model to see where your performance differs most.
+              </p>
+            
+              {getInsights().maxUphillDeviation && (
+                <div style={{ marginBottom: 8 }}>
+                  <strong>Uphill performance:</strong>{' '}
+                  {getInsights().maxUphillDeviation.diff > 0 ? (
+                    <span>
+                      You slow down <span style={{ color: '#ef4444' }}>more than average</span> on {getInsights().maxUphillDeviation.gradient} gradients 
+                      ({getInsights().maxUphillDeviation.percentDiff}% difference). This could be an area to focus training.
+                    </span>
+                  ) : (
+                    <span>
+                      You handle {getInsights().maxUphillDeviation.gradient} gradients <span style={{ color: '#10b981' }}>better than average </span> 
+                      ({Math.abs(getInsights().maxUphillDeviation.percentDiff)}% difference). This is a relative strength!
+                    </span>
+                  )}
+                </div>
+              )}
+              {getInsights().maxDownhillDeviation && (
+                <div style={{ marginBottom: 8 }}>
+                  <strong>Downhill performance:</strong>{' '}
+                  {getInsights().maxDownhillDeviation.diff > 0 ? (
+                    <span>
+                      On {getInsights().maxDownhillDeviation.gradient} gradients, you're <span style={{ color: '#ef4444' }}>not taking full advantage</span> of 
+                      the descent ({getInsights().maxDownhillDeviation.percentDiff}% difference from average).
+                    </span>
+                  ) : (
+                    <span>
+                      You're <span style={{ color: '#10b981' }}>particularly good</span> at {getInsights().maxDownhillDeviation.gradient} descents, 
+                      with {Math.abs(getInsights().maxDownhillDeviation.percentDiff)}% relatively better adjustment than average runners.
+                    </span>
+                  )}
+                </div>  
+              )}
+              {getInsights().biggestImprovement && (
+                <div style={{ 
+                  marginTop: 16, 
+                  marginBottom: 8,
+                  padding: '12px 16px',
+                  backgroundColor: getInsights().biggestImprovement.diff > 0 ? '#fef2f2' : '#f0fdf4',
+                  borderLeft: `4px solid ${getInsights().biggestImprovement.diff > 0 ? '#ef4444' : '#10b981'}`,
+                  borderRadius: '4px'
+                }}>
+                  {getInsights().biggestImprovement.diff > 0 ? (
+                    <>
+                      <strong style={{ color: '#b91c1c' }}>📈 Biggest improvement opportunity:</strong>{' '}
+                      <span>
+                        Your {getInsights().biggestImprovement.gradient} gradient performance is {getInsights().biggestImprovement.percentDiff}% relatively slower 
+                        than the modelled average runner. Focused training on this gradient could yield your biggest gains.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <strong style={{ color: '#10b981' }}>📈 Focus area:</strong>{' '}
+                      <span>
+                        While you perform well on all gradients, your {getInsights().biggestImprovement.gradient} gradient 
+                        has the least advantage compared to average ({Math.abs(getInsights().biggestImprovement.percentDiff)}% difference).
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+              
             </>
           ) : (
-            <>
-              <strong style={{ color: '#10b981' }}>📈 Focus area:</strong>{' '}
-              <span>
-                While you perform well on all gradients, your {getInsights().biggestImprovement.gradient} gradient 
-                has the least advantage compared to average ({Math.abs(getInsights().biggestImprovement.percentDiff)}% difference).
-              </span>
-            </>
+            <p>Insufficient data to generate insights. More runs with varied gradients are needed.</p>
           )}
-        </div>
-      )}
-
-      <p style={{ fontSize: 13, color: '#666', marginTop: 12 }}>
-        Based on Strava's improved GAP model: <a href="https://medium.com/strava-engineering/an-improved-gap-model-8b07ae8886c3" 
-        target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6' }}>Strava Engineering</a>
-      </p>
-    </>
-  )}
-  
-  {!getInsights() && (
-    <p>Insufficient data to generate insights. More runs with varied gradients are needed.</p>
-  )}
-</div>
         </div>
       </div>
     </div>
   );
-
-  
 };
 
 export { GradientPaceChart, GradeAdjustmentChart };

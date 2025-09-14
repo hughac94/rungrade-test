@@ -16,7 +16,7 @@ function App() {
   const [binLength, setBinLength] = useState(50); // New state for bin length
   const [advancedAnalysis, setAdvancedAnalysis] = useState(null);
   const [analyzingPatterns, setAnalyzingPatterns] = useState(false);
-  const [statType, setStatType] = useState('mean'); // Add state for mean/median toggle
+  const [statType, setStatType] = useState('median'); // Add state for mean/median toggle
   const [batchMode, setBatchMode] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ percent: 0, current: 0, total: 0, currentFile: '', filesProcessed: 0 });
   const [batchResults, setBatchResults] = useState([]); // For live results
@@ -77,6 +77,8 @@ function App() {
 
       const data = await response.json();
       
+      console.log('Frontend: redDotData', data.redDotData); // <-- Add this
+
       if (data.success) {
         setResults(data);
         console.log('Analysis complete:', data);
@@ -285,68 +287,169 @@ const uploadAndAnalyzeBatch = async () => {
         {/* Upload Section */}
         <div className="upload-section">
           
-          <input
-            type="file"
-            multiple
-            accept=".gpx,.fit"
-            onChange={handleFileSelect}
-            className="file-input"
-          />
 
-          {files.length > 0 && (
-            <p className="file-count">✅ {files.length} files selected</p>
-          )}
-
-          
-
-          <div className="bin-config">
-            <label htmlFor="binLength">Bin Length (meters):</label>
-            <select 
-              id="binLength" 
-              value={binLength} 
-              onChange={(e) => setBinLength(parseInt(e.target.value))}
-              className="bin-select"
-            >
-              <option value={25}>25m</option>
-              <option value={50}>50m</option>
-              <option value={100}>100m</option>
-              <option value={200}>200m</option>
-            </select>
-          </div>
-
-          {/* Batch Mode Toggle */}
-<div className="batch-toggle">
-  <label>
-    <input
-      type="checkbox"
-      checked={batchMode}
-      onChange={(e) => setBatchMode(e.target.checked)}
-    />
-    Batch Mode (for multiple files)
-  </label>
-</div>
-
-<button
-  onClick={batchMode ? uploadAndAnalyzeBatch : uploadAndAnalyze}
-  disabled={uploading || files.length === 0}
-  className={`upload-btn ${uploading ? 'uploading' : ''}`}
+          <div
+  style={{
+    background: '#fff',
+    borderRadius: 10,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+    maxWidth: '1150px',
+    width: '100%',
+    margin: '32px auto 24px auto',
+    padding: '24px 28px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 18,
+  }}
 >
-  {uploading ? (
-    <span className="spinner-container">
-      <span className="spinner"></span>
-      {batchMode ? 
-        `Processing File ${batchProgress.current}/${batchProgress.total}...` : 
-        'Analyzing...'}
-    </span>
-  ) : (
-    <>
-      {batchMode ? '🚀 Upload To Processor (Batch)' : '🚀 Upload To Processor'}
+  <h2 style={{
+    fontSize: '1.2rem',
+    fontWeight: 700,
+    color: '#fff',
+    background: '#10b981',
+    padding: '8px 0',
+    borderRadius: '6px',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: '0.5px'
+  }}>
+    Choose Files and Processing Settings 
+  </h2>
+
+  <div style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    justifyContent: 'space-between',
+    flexWrap: 'wrap'
+  }}>
+    {/* File input and status */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <input
+        type="file"
+        multiple
+        accept=".gpx,.fit"
+        onChange={handleFileSelect}
+        style={{
+          fontSize: '15px',
+          padding: '5px 10px',
+          borderRadius: 4,
+          border: '1px solid #ddd',
+          background: '#f6f8fa'
+        }}
+      />
       {files.length > 0 && (
-        <span className="file-count-badge">{files.length}</span>
-        )}
-    </>
+        <span style={{
+          color: '#10b981',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          fontSize: '15px'
+        }}>
+          <span style={{ fontSize: '18px', marginRight: 4 }}>✅</span>
+          {files.length} file{files.length > 1 ? 's' : ''} selected
+        </span>
+      )}
+    </div>
+
+    {/* Bin length select */}
+    <div>
+      <label htmlFor="binLength" style={{
+        fontWeight: 500,
+        color: '#333',
+        fontSize: '0.98rem',
+        marginRight: 6
+      }}>
+        Bin Length
+      </label>
+      <select
+        id="binLength"
+        value={binLength}
+        onChange={e => setBinLength(parseInt(e.target.value))}
+        style={{
+          fontSize: '0.98rem',
+          padding: '5px 10px',
+          borderRadius: 4,
+          border: '1px solid #ddd',
+          background: '#f6f8fa'
+        }}
+      >
+        <option value={25}>25m</option>
+        <option value={50}>50m</option>
+        <option value={100}>100m</option>
+        <option value={200}>200m</option>
+      </select>
+    </div>
+
+    {/* Batch mode toggle */}
+    <div>
+      <label style={{
+        fontWeight: 500,
+        color: '#333',
+        fontSize: '0.98rem',
+        marginRight: 6
+      }}>
+        Batch Mode
+      </label>
+      <input
+        type="checkbox"
+        checked={batchMode}
+        onChange={e => setBatchMode(e.target.checked)}
+        style={{ marginRight: 6 }}
+      />
+      <span style={{ color: '#666', fontSize: '0.95rem' }}>
+        <span style={{ fontWeight: 400 }}>(recommended for &gt;5 files)</span>
+      </span>
+    </div>
+  </div>
+
+  {/* Upload button */}
+  <button
+    onClick={batchMode ? uploadAndAnalyzeBatch : uploadAndAnalyze}
+    disabled={uploading || files.length === 0}
+    style={{
+      marginTop: 10,
+      padding: '10px 0',
+      fontSize: '1.05rem',
+      fontWeight: 600,
+      background: uploading ? '#e5e7eb' : '#e79d14ff',
+      color: uploading ? '#666' : '#fff',
+      border: 'none',
+      borderRadius: 6,
+      cursor: uploading ? 'not-allowed' : 'pointer',
+      transition: 'background 0.2s'
+    }}
+  >
+    {uploading ? (
+      <span>
+        <span className="spinner" style={{
+          marginRight: 8,
+          verticalAlign: 'middle'
+        }}></span>
+        {batchMode ? 
+          `Processing File ${batchProgress.current}/${batchProgress.total}...` : 
+          'Analyzing...'}
+      </span>
+    ) : (
+      batchMode ? '🚀 Click To Upload To Processor (Batch)' : '🚀 Click To Upload To Processor'
+    )}
+  </button>
+
+  {/* Error message */}
+  {error && (
+    <div style={{
+      color: '#ef4444',
+      background: '#fff0f0',
+      borderRadius: 4,
+      padding: '8px 12px',
+      marginTop: 6,
+      fontSize: '0.98rem',
+      textAlign: 'center'
+    }}>
+      ❌ {error}
+    </div>
   )}
-</button>
+</div>
 
           {/* Batch Progress */}
 {uploading && batchMode && (
@@ -408,11 +511,20 @@ const uploadAndAnalyzeBatch = async () => {
         {/* Results Section */}
         {results && (
           <div className="results-section">
-            <h2>📊 Results</h2>
-            
-            {/* Summary */}
             <div className="summary">
-              <h3>Summary Statistics</h3>
+             <h3 style={{
+  fontSize: '1.2rem',
+  fontWeight: 700,
+  color: '#fff',
+  background: '#10b981',
+  padding: '8px 0',
+  borderRadius: '6px',
+  marginBottom: 8,
+  textAlign: 'center',
+  letterSpacing: '0.5px'
+}}>
+  Summary Stats Of Uploaded Files
+</h3>
               {/* --- Calculate summary metrics from the table data --- */}
               {(() => {
                 const successfulFiles = results.results.length;
@@ -486,8 +598,7 @@ const uploadAndAnalyzeBatch = async () => {
             {filteredResults && (
               <div className="filter-summary">
                 <p>
-                  <strong>Filters applied:</strong>
-                  {filterSettings.removeUnreliableBins && ' Removed unreliable bins'}
+                
                   {filterSettings.enableHeartRateFilter &&
                     ` • Heart Rate ${filterSettings.heartRateFilter.minHR || 'min'}-${filterSettings.heartRateFilter.maxHR || 'max'} bpm`
                   }
@@ -499,8 +610,8 @@ const uploadAndAnalyzeBatch = async () => {
                 {/* Inline exclusion breakdown */}
                 {filteredResults.summary.exclusionCounts && (
                   <p style={{ margin: '8px 0', color: '#666' }}>
-                    Bins removed:
-                    Speed ({filteredResults.summary.exclusionCounts.speed}),
+                    Bins removed due to dodgy...
+                    Pace ({filteredResults.summary.exclusionCounts.speed}),
                     Gradient ({filteredResults.summary.exclusionCounts.gradient}),
                     Time ({filteredResults.summary.exclusionCounts.timeInSeconds}),
                     Distance ({filteredResults.summary.exclusionCounts.distance}),
@@ -510,37 +621,54 @@ const uploadAndAnalyzeBatch = async () => {
               </div>
             )}
 
-            {/* Advanced Analysis Button */}
+            {/* le Analysis Button */}
             <div className="analysis-actions">
               <button
                 onClick={runAdvancedAnalysis}
                 disabled={analyzingPatterns}
                 className={`analysis-btn ${analyzingPatterns ? 'analyzing' : ''}`}
+                style={{
+                  background: analyzingPatterns ? '#e5e7eb' : '#e79d14ff',
+                  color: analyzingPatterns ? '#666' : '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  fontSize: '16px',
+                  padding: '15px 30px',
+                  cursor: analyzingPatterns ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.2s'
+                }}
               >
-                {analyzingPatterns ? '🔬 Analyzing Patterns...' : (
-                  (filterSettings.removeUnreliableBins || filterSettings.enableHeartRateFilter) ? 
-                  '📈 Analyze Patterns (with Filters)' : 
-                  '📈 Analyze Patterns'
-                )}
+                {analyzingPatterns ? '🔬 Analyzing Patterns...' : '📈 Analyze'}
               </button>
-              <p className="analysis-note">
-                Analyze pace vs gradient, heart rate zones, and performance patterns
-                {(filterSettings.removeUnreliableBins || filterSettings.enableHeartRateFilter) && 
-                  ' with selected filters applied'}
-              </p>
+              
             </div>
 
             {/* Advanced Analysis Results */}
             {advancedAnalysis && (
               <div className="advanced-analysis">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h3>🔬 Advanced Pattern Analysis</h3>
-                  <StatToggle 
-                    value={statType} 
-                    onChange={setStatType}
-                    style={{ marginLeft: 'auto' }}
-                  />
-                </div>
+                <div style={{ marginBottom: '16px', width: '100%' }}>
+  <h3 style={{
+    fontSize: '1.2rem',
+    fontWeight: 700,
+    color: '#fff',
+    background: '#10b981',
+    padding: '8px 0',
+    borderRadius: '6px',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: '0.5px',
+    width: '100%',
+  }}>
+    🔬 Advanced Pattern Analysis
+  </h3>
+  <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+    <StatToggle 
+      value={statType} 
+      onChange={setStatType}
+    />
+  </div>
+</div>
                 
                 {advancedAnalysis.gradientPace && (
                   <GradientPaceChart 
@@ -554,6 +682,7 @@ const uploadAndAnalyzeBatch = async () => {
                     adjustmentData={advancedAnalysis.gradeAdjustment}
                     gradientPaceData={advancedAnalysis.gradientPace}
                     statType={statType}
+                    redDotData={advancedAnalysis.redDotData} // Pass this prop
                   />
                 )}
               </div>
